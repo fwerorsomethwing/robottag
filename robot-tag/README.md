@@ -101,7 +101,7 @@ Un local al fondo de la Plaza, enfrente de donde apareces. Los cosméticos flota
 - **Cursos**: a la izquierda de la arena está el **CURSO NOOB** (verde, plataformas grandes) y a la derecha el **CURSO PRO** (rojo, plataformas pequeñas, vigas y una esfera). Párate en la plataforma de salida, sal de ella y el cronómetro empieza; toca la plataforma dorada de la meta para terminar. Si vuelves a la salida, se reinicia.
 - **Monedas**: NOOB da 20 la primera vez (5 después); PRO da 60 (15 después). Ajústalo en `public/courses.js` (`reward`).
 - **Computadora** (en el centro, cerca de la aparición): cambia tu nombre, tu color, tus cosméticos y teletranspórtate a un curso. PC: apunta y haz clic. Móvil: toca un botón de mano mirando la pantalla. VR: toca la pantalla con la mano.
-- **Cosméticos**: *Early Access Badge* (gratis, ya puesto) y *Headphones* (50 monedas). Los demás jugadores los ven. Precios y catálogo en `public/cosmetics.js`. El perfil se guarda en el navegador.
+- **Cosméticos**: *Early Access Badge* (gratis, ya puesto; placa negra con "Early" en verde lima y "Access" en rojo, como en el boceto) y *Headphones* (50 monedas). Los demás jugadores los ven. Precios y catálogo en `public/cosmetics.js`. El perfil se guarda en el navegador.
 - Pruebas: `npm test` (locomoción, cursos, cosméticos, computadora, mapas, tienda, red, salas y voz).
 
 ## Controles en PC

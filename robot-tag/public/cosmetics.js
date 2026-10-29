@@ -28,18 +28,6 @@ const std = (color, o = {}) =>
     emissiveIntensity: o.emissiveIntensity ?? 0,
   });
 
-function starShape(outer, inner, points = 5) {
-  const s = new THREE.Shape();
-  for (let i = 0; i < points * 2; i++) {
-    const r = i % 2 === 0 ? outer : inner;
-    const a = Math.PI / 2 + (i * Math.PI) / points;
-    const x = Math.cos(a) * r, y = Math.sin(a) * r;
-    if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
-  }
-  s.closePath();
-  return s;
-}
-
 const BUILDERS = {
   // Diadema sobre la cabeza y dos almohadillas con un detalle luminoso.
   headphones() {
@@ -59,19 +47,38 @@ const BUILDERS = {
     return g;
   },
 
-  // Insignia dorada con una estrella, en el pecho (lado izquierdo del robot).
+  // Insignia "Early Access" como en el boceto: fondo negro, "Early" en verde lima y "Access" en rojo, a mano.
+  // Va en el pecho (lado izquierdo del robot), mirando hacia delante (-Z).
   early_badge() {
     const g = new THREE.Group();
-    const gold = std(0xffc83d, { metalness: 0.7, roughness: 0.3 });
-    const dark = std(0x3a2a00, { roughness: 0.6 });
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.012, 28), gold);
-    disc.rotation.x = Math.PI / 2;
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.005, 8, 28), gold);
-    rim.position.z = -0.006;
-    const star = new THREE.Mesh(new THREE.ExtrudeGeometry(starShape(0.034, 0.015), { depth: 0.006, bevelEnabled: false }), dark);
-    star.position.z = -0.012;
-    g.add(disc, rim, star);
-    g.position.set(-0.075, -0.3, -0.104);
+    const W = 0.17, H = 0.11, D = 0.008;
+    const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    let face = null;
+    if (typeof document !== 'undefined') {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 330;
+      const x = c.getContext('2d');
+      x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineJoin = 'round'; x.lineCap = 'round';
+      const fit = (text, maxW, size) => {
+        x.font = 'bold ' + size + 'px "Segoe Print","Bradley Hand","Comic Sans MS","Marker Felt",cursive';
+        while (x.measureText(text).width > maxW && size > 24) { size -= 4; x.font = 'bold ' + size + 'px "Segoe Print","Bradley Hand","Comic Sans MS","Marker Felt",cursive'; }
+      };
+      fit('Access', 470, 150); fit('Early', 470, 150);
+      x.fillStyle = '#b8f01e'; x.fillText('Early', 256, 95);
+      fit('Access', 470, 150);
+      x.fillStyle = '#ff2b2b'; x.fillText('Access', 256, 235);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      face = new THREE.MeshBasicMaterial({ map: tex });
+    } else {
+      face = new THREE.MeshBasicMaterial({ color: 0x101010 }); // sin DOM (pruebas en Node): solo la placa
+    }
+    // Caras de la caja: +x, -x, +y, -y, +z, -z. El texto va en -z (hacia delante del robot).
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), [black, black, black, black, black, face]);
+    g.add(plate);
+    g.position.set(-0.08, -0.3, -0.106);
     return g;
   },
 };

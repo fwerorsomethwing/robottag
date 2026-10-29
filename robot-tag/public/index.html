@@ -540,7 +540,8 @@ let shopHover = null;
 function updateShopVisuals() {
   if (!inLobby()) return;
   for (const e of shopUI.entries) {
-    e.holder.rotation.y = time * 0.9;
+    // la insignia es una placa plana: se balancea de cara al cliente en vez de girar
+    e.holder.rotation.y = e.item.slot === 'badge' ? Math.PI + Math.sin(time * 1.2) * 0.5 : time * 0.9;
     e.holder.position.y = e.item.y + Math.sin(time * 1.6 + e.item.x) * 0.05;
     e.holder.scale.setScalar(shopHover === e.item.id ? 1.18 : 1);
   }
