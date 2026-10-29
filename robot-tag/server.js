@@ -5,11 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { Rooms } = require('./rooms');
+const { buildIce } = require('./ice');
 const pkg = require('./package.json');
 
 const PORT = process.env.PORT || 3000;
 const USE_HTTPS = process.argv.includes('--https');
 const PUBLIC = path.join(__dirname, 'public');
+// La versión que se muestra (p. ej. 1.0.2.1) vive en public/version.js: npm solo acepta tres números en package.json.
+const VERSION = (fs.readFileSync(path.join(PUBLIC, 'version.js'), 'utf8').match(/'([\d.]+)'/) || [])[1] || pkg.version;
 const CERT_DIR = path.join(__dirname, 'cert');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css' };
 // three.js se sirve desde node_modules para no depender de internet (útil en LAN)
@@ -30,7 +33,7 @@ function handler(req, res) {
   if (p === '/health') {
     // Render y otros alojamientos lo usan para saber que el servidor está vivo
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    return res.end(JSON.stringify({ ok: true, version: pkg.version, ...(rooms ? rooms.stats() : { rooms: 0, players: 0 }) }));
+    return res.end(JSON.stringify({ ok: true, version: VERSION, ...(rooms ? rooms.stats() : { rooms: 0, players: 0 }) }));
   }
   if (p === '/') p = '/index.html';
   if (p === '/favicon.ico') { res.writeHead(204); return res.end(); }
@@ -70,12 +73,12 @@ async function loadOrCreateCert() {
 }
 
 function attachSockets(srv) {
-  const wss = new WebSocketServer({ server: srv, maxPayload: 4096 });
+  const wss = new WebSocketServer({ server: srv, maxPayload: 12288 });
   wss.on('connection', (ws) => {
     const player = rooms.newPlayer(ws);
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
-    ws.send(JSON.stringify({ t: 'welcome', id: player.id, v: pkg.version }));
+    ws.send(JSON.stringify({ t: 'welcome', id: player.id, v: VERSION, ice: buildIce(process.env) }));
     rooms.join(player, undefined, ''); // entra a la Plaza; el mensaje "join" lo cambia si hace falta
 
     let budget = 0, windowStart = Date.now(); // máximo ~100 mensajes por segundo y jugador
@@ -108,7 +111,7 @@ function attachSockets(srv) {
   const srv = USE_HTTPS ? https.createServer(await loadOrCreateCert(), handler) : http.createServer(handler);
   attachSockets(srv);
   srv.listen(PORT, () => {
-    console.log('Robot Tag ' + pkg.version + ' listo:');
+    console.log('Robot Tag ' + VERSION + ' listo:');
     console.log('  ' + proto + '://localhost:' + PORT);
     for (const ip of lanAddresses()) console.log('  ' + proto + '://' + ip + ':' + PORT + '   (otros dispositivos de tu wifi)');
     console.log('Para jugar con gente de otras redes hay que subirlo a internet: mira "Multijugador en línea" en el README.');

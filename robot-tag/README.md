@@ -68,6 +68,18 @@ El juego solo es "en línea" cuando el servidor está en internet. En tu PC es l
 - **Servidor en otra dirección**: en el menú, "Servidor (avanzado)". Sirve para abrir el cliente desde otro sitio (o desde el APK) apuntando a tu servidor.
 - Si se corta la conexión, el juego reintenta solo.
 
+## Chat de voz (1.0.2.1)
+
+Hablas con los jugadores de tu sala y suena en 3D desde su robot: más bajo cuanto más lejos está (se oye hasta ~35 m).
+
+- En el menú, **Chat de voz (usar micrófono)** viene marcado. Al pulsar JUGAR el navegador te pide permiso del micrófono. En VR el permiso se pide *antes* de entrar (si la primera vez falla, pulsa otra vez ENTRAR EN VR). Si lo desmarcas o lo niegas, no hablas; si lo niegas, aún escuchas.
+- **Silenciar**: tecla **M** (PC), botón 🎤 arriba a la derecha (móvil), botón **X o Y** del mando izquierdo (VR). El HUD muestra quién está hablando.
+- Necesita **HTTPS** (Render ya lo trae) o `localhost`. Por `http://IP-de-tu-wifi` el navegador bloquea el micrófono.
+- El audio va directo de jugador a jugador (WebRTC). El servidor solo reenvía los mensajes para conectarlos y nunca recibe tu voz.
+- Usa servidores STUN gratuitos de Google. Algunas redes (datos móviles, wifis de empresa) bloquean la conexión directa y ahí no se oirán. La solución es un servidor TURN: en Render, en **Environment**, añade `TURN_URL` (p. ej. `turn:tu-servidor:3478`), `TURN_USER` y `TURN_PASS`. Hay servicios de TURN gratuitos con registro.
+- APK: el workflow ya añade el permiso de micrófono. Android lo pedirá al jugar.
+- Código: `public/voice.js` (cliente), `rooms.js` (reenvío de señalización), `ice.js` (STUN/TURN).
+
 ## Mapas
 
 En la **Plaza** hay 4 columnas de luz al fondo; entra en una para viajar. En cada mapa, la columna blanca **VOLVER** te regresa.
@@ -90,7 +102,7 @@ Un local al fondo de la Plaza, enfrente de donde apareces. Los cosméticos flota
 - **Monedas**: NOOB da 20 la primera vez (5 después); PRO da 60 (15 después). Ajústalo en `public/courses.js` (`reward`).
 - **Computadora** (en el centro, cerca de la aparición): cambia tu nombre, tu color, tus cosméticos y teletranspórtate a un curso. PC: apunta y haz clic. Móvil: toca un botón de mano mirando la pantalla. VR: toca la pantalla con la mano.
 - **Cosméticos**: *Early Access Badge* (gratis, ya puesto) y *Headphones* (50 monedas). Los demás jugadores los ven. Precios y catálogo en `public/cosmetics.js`. El perfil se guarda en el navegador.
-- Pruebas: `npm test` (locomoción, cursos, cosméticos, computadora, mapas, tienda, red y salas).
+- Pruebas: `npm test` (locomoción, cursos, cosméticos, computadora, mapas, tienda, red, salas y voz).
 
 ## Controles en PC
 
@@ -126,5 +138,7 @@ public/locomotion.js    física de manos para VR (sin DOM, con pruebas)
 public/maps.js          los mapas (Plaza, Bosque, Cueva, Cañón, Ciudad)
 public/shop.js          tienda física
 public/net.js           dirección del servidor y reconexión
+public/voice.js         chat de voz (WebRTC + audio 3D)
+ice.js                 servidores STUN/TURN para la voz
 test/                   pruebas
 ```

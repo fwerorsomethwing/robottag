@@ -17,6 +17,7 @@ function applyProfile(player, m) {
     if (n) player.name = n;
   }
   if (Number.isInteger(m.color) && m.color >= 0 && m.color <= 0xffffff) player.c = m.color;
+  if (typeof m.voice === 'boolean') player.voice = m.voice; // ¿participa en el chat de voz?
   if (m.cos && typeof m.cos === 'object') {
     const cos = {};
     for (const slot of COS_SLOTS) if (typeof m.cos[slot] === 'string' && COS_ID.test(m.cos[slot])) cos[slot] = m.cos[slot];
@@ -39,7 +40,7 @@ class Rooms {
 
   newPlayer(ws) {
     const id = this.nextId++;
-    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, p: null, yaw: 0, l: null, r: null, room: null };
+    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
   }
 
   /** Mete al jugador en una sala. map inválido -> mapa por defecto; código inválido -> sala pública. */
@@ -105,6 +106,8 @@ class Rooms {
       this.join(player, m.map, m.code);
     } else if (m.t === 'profile') {
       applyProfile(player, m);
+    } else if (m.t === 'rtc') {
+      this.relay(player, m);
     } else if (m.t === 's') {
       const p = v3(m.p);
       if (p) player.p = p;
@@ -112,6 +115,36 @@ class Rooms {
       player.l = v3(m.l) || player.l;
       player.r = v3(m.r) || player.r;
     }
+  }
+
+  /**
+   * Chat de voz: reenvía mensajes de señalización WebRTC (oferta, respuesta, candidatos ICE) entre dos jugadores
+   * de la MISMA sala. El audio no pasa por aquí. Se reconstruye el mensaje campo a campo para no reenviar nada raro.
+   */
+  relay(player, m, now = Date.now()) {
+    const room = player.room;
+    if (!room || !Number.isInteger(m.to) || m.to === player.id) return;
+    const target = room.players.get(m.to);
+    if (!target) return;
+    if (now - player.rtcWin > 10000) { player.rtcWin = now; player.rtcN = 0; }
+    if (++player.rtcN > 300) return; // límite: 300 mensajes de voz cada 10 s por jugador
+    const d = m.d;
+    if (!d || typeof d !== 'object') return;
+    let out = null;
+    if (d.sdp && typeof d.sdp === 'object' && (d.sdp.type === 'offer' || d.sdp.type === 'answer')
+        && typeof d.sdp.sdp === 'string' && d.sdp.sdp.length <= 6000) {
+      out = { sdp: { type: d.sdp.type, sdp: d.sdp.sdp } };
+    } else if (d.ice && typeof d.ice === 'object' && typeof d.ice.candidate === 'string' && d.ice.candidate.length <= 600) {
+      const c = d.ice;
+      out = {
+        ice: {
+          candidate: c.candidate,
+          sdpMid: typeof c.sdpMid === 'string' ? c.sdpMid.slice(0, 20) : null,
+          sdpMLineIndex: Number.isInteger(c.sdpMLineIndex) ? c.sdpMLineIndex : null,
+        },
+      };
+    }
+    if (out) this.send(target, JSON.stringify({ t: 'rtc', from: player.id, d: out }));
   }
 
   /** Un paso del servidor (cada 50 ms): contagio de LAVA y envío de "snap" a cada sala. */
@@ -130,7 +163,7 @@ class Rooms {
       }
       const list = [...room.players.values()]
         .filter((p) => p.p)
-        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos }));
+        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos, v: p.voice ? 1 : 0 }));
       const msg = JSON.stringify({ t: 'snap', players: list, it: room.itId, map: room.map });
       for (const p of room.players.values()) this.send(p, msg);
     }

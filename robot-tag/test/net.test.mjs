@@ -39,8 +39,9 @@ const https = { protocol: 'https:', host: 'robot-tag.onrender.com' };
 }
 {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
-  assert.equal(VERSION, pkg.version, 'version.js y package.json deben coincidir');
-  assert.equal(VERSION, '1.0.2');
-  ok('versión 1.0.2 en version.js y package.json');
+  // npm solo admite tres números (1.0.2); el parche 1.0.2.1 se muestra desde version.js.
+  assert.ok(VERSION.startsWith(pkg.version), 'version.js debe empezar por la versión de package.json');
+  assert.equal(VERSION, '1.0.2.1');
+  ok('versión 1.0.2.1 en version.js (package.json: 1.0.2)');
 }
 console.log('\nPruebas de red: ' + n + ' correctas');

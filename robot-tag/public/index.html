@@ -25,6 +25,10 @@
   #card details input{margin:6px 0 0;font-size:14px}
   #card #ver{margin:12px 0 0;font-size:12px;color:#7d89b3}
   #card #net{margin:8px 0 0;font-size:13px}
+  #card label.chk{display:flex;align-items:center;gap:8px;margin:0 0 10px;text-align:left;font-size:14px;color:#cdd6f4;cursor:pointer}
+  #card label.chk input{width:auto;margin:0}
+  #mic{display:none;position:fixed;top:12px;right:12px;width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(61,165,255,.35);color:#fff;font-size:24px;touch-action:none;user-select:none}
+  #mic.muted{background:rgba(255,80,80,.55)}
   #touch{display:none}
   #touch button{position:fixed;bottom:28px;width:112px;height:112px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(61,165,255,.35);color:#fff;font-size:17px;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none}
   #touch button:active{background:rgba(61,165,255,.7)}
@@ -36,6 +40,7 @@
 <div id="hud"></div>
 <div id="cross"></div>
 <div id="notice"></div>
+<button id="mic" title="Silenciar micrófono">🎤</button>
 <div id="touch"><button id="tl">MANO IZQ</button><button id="tr">MANO DER</button></div>
 <div id="menu">
   <div id="card">
@@ -43,6 +48,7 @@
     <p>Estilo Gorilla Tag 2020 · multijugador en línea</p>
     <input id="name" maxlength="12" placeholder="Tu nombre" value="">
     <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
+    <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
     <details id="adv"><summary>Servidor (avanzado)</summary>
       <input id="server" placeholder="vacío = este mismo servidor · o https://tu-juego.onrender.com" autocomplete="off" spellcheck="false">
     </details>
@@ -60,6 +66,7 @@
       <li><b>Computadora</b> (frente a la aparición): cambia tu nombre y color, compra cosméticos (Headphones, Early Access Badge) y teletranspórtate a los cursos. Apunta y haz clic, toca, o pulsa la pantalla con la mano en VR</li>
       <li><b>Mapas</b>: en la Plaza hay 4 columnas de luz al fondo (Bosque, Cueva, Cañón, Ciudad). Entra en una para viajar. En cada mapa, la columna blanca VOLVER te regresa</li>
       <li><b>Tienda</b> (al fondo de la Plaza, enfrente de donde apareces): toca un cosmético flotando sobre su pedestal para comprarlo, ponértelo o quitártelo</li>
+      <li><b>Chat de voz</b>: se oye a los jugadores de tu sala, más bajo cuanto más lejos están. <b>M</b> silencia el micrófono (móvil: botón 🎤 arriba a la derecha; VR: botón X o Y del mando izquierdo)</li>
       <li><b>Sala privada</b>: escribe el mismo código que tus amigos (y estén en el mismo mapa) para jugar juntos</li>
       <li>El robot <b style="color:#ff6a3a">LAVA</b> (naranja) te contagia si te toca</li>
       <li><b>Esc</b>: soltar el mouse</li>
@@ -81,6 +88,7 @@ import { MAP_INFO, LOBBY, buildMap, mapInfo, portalAt } from './maps.js';
 import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, shopPurchase, coinsLabel, needsConfirm } from './shop.js';
 import { resolveServerUrl, cleanRoomCode, backoff } from './net.js';
 import { VERSION } from './version.js';
+import { Voice } from './voice.js';
 const V3 = THREE.Vector3;
 const profile = new Profile(); // nombre, color, monedas y cosméticos (se guarda en este navegador)
 
@@ -568,6 +576,7 @@ function enterMap(id, first = false) {
   tracker.reset();
   for (const r of remotes.values()) removeRobot(r.rb);
   remotes.clear(); itId = null; lastIt = undefined;
+  voice.closeAll();
   if (first) {
     pos.copy(SPAWN);
     const at = (qs.get('at') || '').split(',').map(Number); // ?at=x,z,giro en grados: aparecer en otro punto (útil para capturas y pruebas)
@@ -589,6 +598,10 @@ function handlePortals() {
 // El servidor (server.js) reparte a los jugadores en salas: una por mapa, y con código si es privada.
 // Para jugar con gente de otras redes, el juego tiene que estar en internet (ver README: "Multijugador en línea").
 const remotes = new Map();
+// Chat de voz: la señalización viaja por el mismo WebSocket del juego.
+const voice = new Voice({ send: (to, d) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'rtc', to, d })); } });
+const publicInfo = () => ({ ...profile.publicInfo(), voice: voice.active });
+
 let ws = null, myId = null, itId = null, lastIt = undefined, myName = 'Robot';
 let netState = 'idle'; // idle (aún no jugó) · connecting · online · offline (reintentando)
 let netTries = 0, reconnectTimer = null, wantOnline = false, serverUrl = null, roomCode = '', sentCode = '', roomInfo = null;
@@ -628,13 +641,14 @@ function connect() {
     if (ws !== sock) return;
     netTries = 0; netState = 'online';
     sentCode = roomCode;
-    sock.send(JSON.stringify({ t: 'join', ...profile.publicInfo(), name: myName, map: currentMapId, code: roomCode }));
+    sock.send(JSON.stringify({ t: 'join', ...publicInfo(), name: myName, map: currentMapId, code: roomCode }));
     updateNet();
   };
   sock.onmessage = (e) => {
     if (ws !== sock) return;
     let m; try { m = JSON.parse(e.data); } catch { return; }
-    if (m.t === 'welcome') myId = m.id;
+    if (m.t === 'welcome') { myId = m.id; voice.setIce(m.ice); }
+    else if (m.t === 'rtc') voice.signal(m.from, m.d);
     else if (m.t === 'room') { roomInfo = m; updateNet(); }
     else if (m.t === 'notice') notice(String(m.text || '').slice(0, 80), '#ffd23d');
     else if (m.t === 'snap') onSnap(m);
@@ -642,6 +656,7 @@ function connect() {
   sock.onclose = () => {
     if (ws !== sock) return;
     myId = null; itId = null; lastIt = undefined; roomInfo = null;
+    voice.closeAll();
     for (const r of remotes.values()) removeRobot(r.rb);
     remotes.clear();
     scheduleReconnect();
@@ -656,7 +671,7 @@ function sendMap() {
   if (ws && ws.readyState === 1) { sentCode = roomCode; ws.send(JSON.stringify({ t: 'map', map: currentMapId, code: roomCode })); }
 }
 function sendProfile() {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'profile', ...profile.publicInfo() }));
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'profile', ...publicInfo() }));
 }
 /** Se llama al pulsar JUGAR: conecta, o cambia de servidor/sala si el jugador los cambió en el menú. */
 function goOnline() {
@@ -665,7 +680,7 @@ function goOnline() {
   store.set('robottag.server', $('server').value.trim());
   wantOnline = true;
   const url = targetUrl();
-  if (ws && url !== serverUrl) { const old = ws; ws = null; old.close(); for (const r of remotes.values()) removeRobot(r.rb); remotes.clear(); connect(); }
+  if (ws && url !== serverUrl) { const old = ws; ws = null; old.close(); voice.closeAll(); for (const r of remotes.values()) removeRobot(r.rb); remotes.clear(); connect(); }
   else if (!ws || ws.readyState > 1) connect();
   else if (ws.readyState === 1 && roomCode !== sentCode) sendMap();
 }
@@ -686,9 +701,11 @@ function onSnap(m) {
     if (p.c !== r.rb.color) { r.rb.color = p.c; if (!r.rb.tagged) r.rb.mat.color.setHex(p.c); }
     applyCosmetics(r.rb, p.cos);
     r.name = p.name;
+    r.voice = !!p.v;
     r.tp = { head: new V3(...p.p), yaw: p.yaw, l: new V3(...(p.l || p.p)), r: new V3(...(p.r || p.p)) };
   }
   for (const [id, r] of remotes) if (!seen.has(id)) { removeRobot(r.rb); remotes.delete(id); }
+  voice.sync(myId, [...remotes].filter(([, r]) => r.voice).map(([id]) => id));
   itId = m.it;
   if (itId !== lastIt && itId !== null) {
     if (itId === myId) notice('¡Eres LAVA! Toca a alguien', '#ff6a3a');
@@ -715,13 +732,41 @@ $('server').value = qs.get('server') || store.get('robottag.server');
 if ($('server').value) $('adv').open = true;
 $('ver').textContent = 'Robot Tag v' + VERSION;
 document.getElementById('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
-function start() {
+$('voice').checked = store.get('robottag.voice') !== '0';
+/** Enciende el chat de voz si está marcado en el menú (hay que llamarlo desde un clic: pide permiso de micrófono). */
+async function ensureVoice() {
+  const want = $('voice').checked;
+  store.set('robottag.voice', want ? '1' : '0');
+  if (want && voice.state === 'off') { await voice.enable(); sendProfile(); }
+  else if (!want && voice.state !== 'off') { voice.disable(); sendProfile(); }
+  syncMicButton();
+}
+function syncMicButton() {
+  const b = $('mic');
+  b.style.display = isTouch && playing && voice.state === 'on' ? 'block' : 'none';
+  b.classList.toggle('muted', voice.muted);
+  b.textContent = voice.muted ? '🔇' : '🎤';
+}
+function toggleMic() {
+  const m = voice.toggleMute();
+  if (m === null) return;
+  syncMicButton();
+  notice(m ? 'Micrófono silenciado' : 'Micrófono activado', m ? '#ff8a7a' : '#7dffb0');
+  if (inVR) pulse('left');
+}
+$('mic').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleMic(); });
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && playing && !e.repeat && document.activeElement !== $('name') && document.activeElement !== $('room') && document.activeElement !== $('server')) toggleMic();
+});
+async function start() {
+  await ensureVoice(); // primero el permiso del micrófono: el aviso del navegador no debe tapar la partida
   myName = document.getElementById('name').value.trim() || 'Robot' + Math.floor(Math.random() * 99);
   profile.setName(myName);
   document.getElementById('menu').style.display = 'none';
   playing = true;
   if (isTouch) document.getElementById('touch').style.display = 'block';
   else canvas.requestPointerLock();
+  syncMicButton();
   goOnline();
 }
 document.addEventListener('pointerlockchange', () => {
@@ -893,7 +938,7 @@ function makePanel(cw, ch, pw, ph, x, y, z) {
   camera.add(mesh);
   return { mesh, c, ctx: c.getContext('2d'), tex };
 }
-const hudPanel = makePanel(512, 210, 0.32, 0.131, -0.3, -0.26, -0.8);
+const hudPanel = makePanel(512, 250, 0.32, 0.156, -0.3, -0.27, -0.8);
 const noticePanel = makePanel(1024, 150, 0.9, 0.132, 0, 0.2, -1.2);
 function paint(p, draw) { p.ctx.clearRect(0, 0, p.c.width, p.c.height); draw(p.ctx, p.c); p.tex.needsUpdate = true; }
 function vrNotice(text, color) {
@@ -904,6 +949,11 @@ function vrNotice(text, color) {
   });
   noticePanel.mesh.visible = true;
   clearTimeout(vrNoticeTimer); vrNoticeTimer = setTimeout(() => (noticePanel.mesh.visible = false), 2200);
+}
+function vrMicText() {
+  if (voice.state === 'on') return voice.muted ? 'Mic: SILENCIADO (X/Y)' : (voice.me.speaking ? 'Mic: hablando…' : 'Mic: activo (X/Y)');
+  if (voice.state === 'listen') return 'Solo escuchas (sin mic)';
+  return '';
 }
 function drawVRHud() {
   const lava = itId !== null && itId === myId;
@@ -916,6 +966,8 @@ function drawVRHud() {
     x.fillStyle = lava ? '#ff6a3a' : '#ffd23d'; x.fillText(l2, 24, 76);
     x.fillStyle = '#9fd0ff'; x.fillText(loco.vel.length().toFixed(1) + ' m/s', 24, 120);
     x.fillStyle = '#7dffb0'; x.fillText(courseLine(), 24, 164);
+    const mic = vrMicText();
+    if (mic) { x.fillStyle = voice.muted || voice.state !== 'on' ? '#ff8a7a' : '#7dffb0'; x.fillText(mic, 24, 208); }
   });
 }
 
@@ -952,6 +1004,20 @@ function snapTurn(grips) {
   loco.resyncHands(rig, grips);
 }
 
+let micBtnDown = false;
+function pollMicButton() {
+  const s = renderer.xr.getSession();
+  if (!s) return;
+  let down = false;
+  for (const src of s.inputSources) {
+    if (src.handedness !== 'left' || !src.gamepad) continue;
+    const b = src.gamepad.buttons;
+    down = !!((b[4] && b[4].pressed) || (b[5] && b[5].pressed)); // X o Y
+  }
+  if (down && !micBtnDown) toggleMic();
+  micBtnDown = down;
+}
+
 function stepVR(dt) {
   dt = Math.min(Math.max(dt, 0.004), 0.05);
   const grips = { left: gripLocal('left'), right: gripLocal('right') };
@@ -961,6 +1027,7 @@ function stepVR(dt) {
     vrNeedsInit = false;
   }
   snapTurn(grips);
+  pollMicButton();
   const r = loco.update(dt, rig, camera.position, grips, { lava: itId !== null && itId === myId });
   for (const name of r.contacts) pulse(name);
   if (r.head.y < -15) {
@@ -983,6 +1050,9 @@ function stepVR(dt) {
 }
 
 async function enterVR() {
+  vrBtn.disabled = true;
+  const needPrompt = $('voice').checked && voice.state === 'off';
+  await ensureVoice(); // el permiso del micrófono se pide ANTES de entrar en VR (dentro de VR no se puede mostrar)
   myName = document.getElementById('name').value.trim() || 'Robot' + Math.floor(Math.random() * 99);
   profile.setName(myName);
   vrBtn.disabled = true;
@@ -994,10 +1064,14 @@ async function enterVR() {
     document.getElementById('menu').style.display = 'none';
     inVR = true; playing = true; vrNeedsInit = true; snapReady = true;
     hudPanel.mesh.visible = true;
+    syncMicButton();
     goOnline();
   } catch (err) {
     console.error(err);
-    vrBtn.textContent = 'No se pudo iniciar VR: ' + (err && err.message ? err.message : err);
+    vrBtn.disabled = false;
+    vrBtn.textContent = needPrompt && /gesture|NotAllowed|Security/i.test(String(err && (err.name + err.message)))
+      ? 'Micrófono listo: pulsa otra vez ENTRAR EN VR'
+      : 'No se pudo iniciar VR: ' + (err && err.message ? err.message : err);
     return;
   }
   vrBtn.disabled = false;
@@ -1034,6 +1108,14 @@ initVRButton();
 
 // ---------- Bucle principal ----------
 const hud = document.getElementById('hud');
+function voiceHud() {
+  const st = voice.statusText();
+  if (!st) return '';
+  const names = [...voice.speaking].map((id) => (remotes.get(id) || {}).name).filter(Boolean);
+  const color = voice.state === 'on' && !voice.muted ? '#7dffb0' : '#ff8a7a';
+  return '<br><span style="color:' + color + '">' + st + '</span>'
+    + (names.length ? '<br><span style="color:#9fd0ff">Hablando: ' + names.join(', ').replace(/[<>&]/g, '') + '</span>' : '');
+}
 let last = performance.now(), sendAcc = 0;
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
@@ -1054,6 +1136,14 @@ function frame(now) {
   }
   for (const [id, r] of remotes) setTagged(r.rb, id === itId);
 
+  if (voice.active) {
+    const f = new V3(0, 0, -1).transformDirection(camera.matrixWorld);
+    const wp = new V3().setFromMatrixPosition(camera.matrixWorld);
+    const heads = new Map();
+    for (const [id, r] of remotes) heads.set(id, r.head);
+    voice.update(now, { x: wp.x, y: wp.y, z: wp.z, fx: f.x, fy: f.y, fz: f.z, ux: 0, uy: 1, uz: 0 }, heads);
+  }
+
   sendAcc += dt;
   if (playing && ws && ws.readyState === 1 && myId !== null && netState === 'online' && sendAcc >= 0.05) {
     sendAcc = 0;
@@ -1064,13 +1154,14 @@ function frame(now) {
   const speed = vel.length().toFixed(1);
   hud.innerHTML = netLine() + ' · ' + speed + ' m/s'
     + (netState !== 'online' ? '' : itId === null ? '<br>Esperando más jugadores…' : itId === myId ? '<br><b style="color:#ff6a3a">¡ERES LAVA!</b>' : '<br>Huye de la lava')
-    + '<br><span style="color:#7dffb0">' + courseLine() + '</span>';
+    + '<br><span style="color:#7dffb0">' + courseLine() + '</span>'
+    + voiceHud();
   updateShopVisuals();
   refreshScreen();
   renderer.render(scene, camera);
 }
 enterMap(MAP_INFO.some((m) => m.id === startMapParam) ? startMapParam : LOBBY, true);
-window.__dbg = () => ({ remotes: remotes.size, map: currentMapId, net: netState, my: myId, it: itId, last: window.__lastSnap });
+window.__dbg = () => ({ voice: voice.debug(), remotes: remotes.size, map: currentMapId, net: netState, my: myId, it: itId, last: window.__lastSnap });
 renderer.setAnimationLoop(frame);
 </script>
 </body>
