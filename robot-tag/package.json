@@ -1,0 +1,19 @@
+{
+  "name": "robot-tag",
+  "version": "1.0.2",
+  "description": "Juego multijugador en línea estilo Gorilla Tag 2020 (robots) con VR, mapas, tienda, cursos y cosméticos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "https": "node server.js --https",
+    "test": "node test/locomotion.test.mjs && node test/courses.test.mjs && node test/cosmetics.test.mjs && node test/computer.test.mjs && node test/maps.test.mjs && node test/shop.test.mjs && node test/net.test.mjs && node test/rooms.test.mjs"
+  },
+  "dependencies": {
+    "selfsigned": "^2.4.1",
+    "three": "0.160.1",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

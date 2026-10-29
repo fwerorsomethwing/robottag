@@ -1,0 +1,9 @@
+{
+  "appId": "com.robottag.app",
+  "appName": "Robot Tag",
+  "webDir": "www",
+  "server": {
+    "url": "https://CAMBIA-ESTO.onrender.com",
+    "cleartext": false
+  }
+}

@@ -1,0 +1,9 @@
+# Despliegue en Render: New + > Blueprint, elige este repositorio y listo.
+services:
+  - type: web
+    name: robot-tag
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
