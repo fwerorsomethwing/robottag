@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Robot Tag</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#111;font-family:system-ui,sans-serif;color:#fff}
+  canvas{display:block}
+  #hud{position:fixed;top:12px;left:12px;font-size:14px;line-height:1.55;text-shadow:0 1px 3px #000;pointer-events:none}
+  #cross{position:fixed;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#fff;opacity:.7;pointer-events:none}
+  #notice{position:fixed;top:14%;width:100%;text-align:center;font-size:26px;font-weight:700;text-shadow:0 2px 6px #000;pointer-events:none;opacity:0;transition:opacity .4s}
+  #menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,14,30,.88)}
+  #card{background:#1b2238;border:1px solid #33406b;border-radius:14px;padding:28px 32px;width:min(420px,90vw);text-align:center}
+  #card h1{margin:0 0 6px;font-size:32px;letter-spacing:1px}
+  #card p{margin:6px 0;color:#b9c3e6;font-size:14px}
+  #card input{width:100%;box-sizing:border-box;margin:14px 0 10px;padding:10px 12px;border-radius:8px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:16px}
+  #card button{width:100%;padding:12px;border:0;border-radius:8px;background:#3da5ff;color:#06101f;font-size:17px;font-weight:700;cursor:pointer}
+  #card ul{text-align:left;color:#b9c3e6;font-size:13px;padding-left:18px;margin:12px 0 0}
+  #card button#vr{margin-top:10px;background:#8a5cff;color:#fff}
+  #card button:disabled{background:#2c3556;color:#8d98c4;cursor:default;font-size:13px;font-weight:600}
+  #card input#room{margin:0 0 10px}
+  #card details{margin:0 0 10px;text-align:left;font-size:13px;color:#b9c3e6}
+  #card summary{cursor:pointer;padding:4px 0}
+  #card details input{margin:6px 0 0;font-size:14px}
+  #card #ver{margin:12px 0 0;font-size:12px;color:#7d89b3}
+  #card #net{margin:8px 0 0;font-size:13px}
+  #card label.chk{display:flex;align-items:center;gap:8px;margin:0 0 10px;text-align:left;font-size:14px;color:#cdd6f4;cursor:pointer}
+  #card label.chk input{width:auto;margin:0}
+  #mic{display:none;position:fixed;top:12px;right:12px;width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(61,165,255,.35);color:#fff;font-size:24px;touch-action:none;user-select:none}
+  #mic.muted{background:rgba(255,80,80,.55)}
+  #touch{display:none}
+  #touch button{position:fixed;bottom:28px;width:112px;height:112px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(61,165,255,.35);color:#fff;font-size:17px;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none}
+  #touch button:active{background:rgba(61,165,255,.7)}
+  #tl{left:24px}#tr{right:24px}
+  canvas{touch-action:none}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="cross"></div>
+<div id="notice"></div>
+<button id="mic" title="Silenciar micrófono">🎤</button>
+<div id="touch"><button id="tl">MANO IZQ</button><button id="tr">MANO DER</button></div>
+<div id="menu">
+  <div id="card">
+    <h1>ROBOT TAG</h1>
+    <p>Estilo Gorilla Tag 2020 · multijugador en línea</p>
+    <input id="name" maxlength="12" placeholder="Tu nombre" value="">
+    <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
+    <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
+    <details id="adv"><summary>Servidor (avanzado)</summary>
+      <input id="server" placeholder="vacío = este mismo servidor · o https://tu-juego.onrender.com" autocomplete="off" spellcheck="false">
+    </details>
+    <button id="play">JUGAR EN PC</button>
+    <button id="vr" disabled>Comprobando VR…</button>
+    <div id="net"></div>
+    <ul>
+      <li><b>VR</b>: empuja el suelo y las paredes con las manos (como en Gorilla Tag). Stick derecho: girar 45°</li>
+      <li><b>Móvil / APK</b>: arrastra el dedo para mirar y usa los botones MANO IZQ / MANO DER para empujar</li>
+      <li><b>Mouse</b>: mirar</li>
+      <li><b>Click izquierdo / derecho</b>: empujar con la mano izquierda / derecha</li>
+      <li>Apunta al suelo o a una pared y haz clic alternando manos para correr y saltar</li>
+      <li>Mantén el clic en una superficie para agarrarte y frenar</li>
+      <li><b>Cursos</b>: NOOB (verde, fácil) y PRO (rojo, difícil). El cronómetro corre al salir de la plataforma azul y para en la dorada. Ganas monedas</li>
+      <li><b>Computadora</b> (frente a la aparición): cambia tu nombre y color, compra cosméticos (Headphones, Early Access Badge) y teletranspórtate a los cursos. Apunta y haz clic, toca, o pulsa la pantalla con la mano en VR</li>
+      <li><b>Mapas</b>: en la Plaza hay 4 columnas de luz al fondo (Bosque, Cueva, Cañón, Ciudad). Entra en una para viajar. En cada mapa, la columna blanca VOLVER te regresa</li>
+      <li><b>Tienda</b> (al fondo de la Plaza, enfrente de donde apareces): toca un cosmético flotando sobre su pedestal para comprarlo, ponértelo o quitártelo</li>
+      <li><b>Chat de voz</b>: se oye a los jugadores de tu sala, más bajo cuanto más lejos están. <b>M</b> silencia el micrófono (móvil: botón 🎤 arriba a la derecha; VR: botón X o Y del mando izquierdo)</li>
+      <li><b>Sala privada</b>: escribe el mismo código que tus amigos (y estén en el mismo mapa) para jugar juntos</li>
+      <li>El robot <b style="color:#ff6a3a">LAVA</b> (naranja) te contagia si te toca</li>
+      <li><b>Esc</b>: soltar el mouse</li>
+    </ul>
+    <p id="ver"></p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "/vendor/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { VRLocomotion, rayBox, raySphere } from './locomotion.js';
+import { COURSES, CourseTracker, courseSteps } from './courses.js';
+import { Profile, buildCosmetic, SLOTS } from './cosmetics.js';
+import { Computer, SCREEN } from './computer.js';
+import { MAP_INFO, LOBBY, buildMap, mapInfo, portalAt } from './maps.js';
+import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, shopPurchase, coinsLabel, needsConfirm } from './shop.js';
+import { resolveServerUrl, cleanRoomCode, backoff } from './net.js';
+import { VERSION } from './version.js';
+import { Voice } from './voice.js';
+const V3 = THREE.Vector3;
+const profile = new Profile(); // nombre, color, monedas y cosméticos (se guarda en este navegador)
+
+// ---------- Constantes de físicas (inspiradas en el Gorilla Tag actual) ----------
+const BODY_R = 0.4;        // radio del cuerpo
+const REACH = 1.15;        // alcance de los brazos
+const PUSH = 6.2;          // fuerza de empuje por mano
+const MAX_V = 9.5;         // límite de velocidad
+const GRAVITY = -9.8;
+const AIR_DRAG = 0.15;
+const GROUND_FRICTION = 3.0;
+const GRIP_DAMP = 1.6;     // frenado al mantener la mano agarrada
+const SPAWN = new V3(0, 0.5, 9); // se recalcula al cargar cada mapa (con un desfase aleatorio para no aparecer encima de otro jugador)
+
+// ---------- Escena ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8ec5ff);
+scene.fog = new THREE.Fog(0x8ec5ff, 30, 90);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 200);
+// En VR la cámara cuelga de este "rig": moverlo mueve al jugador por el mundo.
+const rig = new THREE.Group();
+rig.add(camera);
+scene.add(rig);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 1.0);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(20, 40, 10);
+scene.add(sun);
+
+// ---------- Mundo: los mapas vienen de maps.js; aquí se convierten en objetos 3D ----------
+const boxes = [];    // colisiones del mapa activo: {min, max}
+const spheres = [];  // {c, r}  (loco las comparte por referencia, por eso se rellenan "en sitio")
+const worlds = new Map();
+let world = null;    // mapa activo
+let building = null; // mapa que se está construyendo
+const inLobby = () => !!world && world.id === LOBBY;
+const matCache = new Map();
+function mat(color, o = {}) {
+  const key = color + '|' + (o.opacity ?? 1) + '|' + (o.emissive ? 1 : 0);
+  let m = matCache.get(key);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({
+      color, roughness: 0.7, transparent: o.opacity != null, opacity: o.opacity ?? 1,
+      emissive: o.emissive ? color : 0x000000, emissiveIntensity: o.emissive ? 0.9 : 0,
+    });
+    matCache.set(key, m);
+  }
+  return m;
+}
+function addBox(cx, cy, cz, sx, sy, sz, color, o = {}) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat(color, o));
+  mesh.position.set(cx, cy, cz);
+  building.group.add(mesh);
+  if (!o.decor) building.boxes.push({ min: new V3(cx - sx / 2, cy - sy / 2, cz - sz / 2), max: new V3(cx + sx / 2, cy + sy / 2, cz + sz / 2) });
+  return mesh;
+}
+function addSphere(cx, cy, cz, r, color) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), mat(color));
+  mesh.position.set(cx, cy, cz);
+  building.group.add(mesh);
+  building.spheres.push({ c: new V3(cx, cy, cz), r });
+  return mesh;
+}
+
+const cssColor = (c) => '#' + c.toString(16).padStart(6, '0');
+function signSprite(text, color) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = 'rgba(8,12,28,.8)'; x.fillRect(0, 0, 512, 128);
+  x.strokeStyle = color; x.lineWidth = 8; x.strokeRect(4, 4, 504, 120);
+  let size = 56; // se reduce la letra hasta que el texto quepa en el cartel
+  x.font = 'bold ' + size + 'px sans-serif';
+  while (x.measureText(text).width > 470 && size > 20) { size -= 2; x.font = 'bold ' + size + 'px sans-serif'; }
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = color; x.fillText(text, 256, 68);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c) }));
+  s.scale.set(4, 1, 1);
+  return s;
+}
+
+// Portal: columna de luz. Entrar en ella te lleva al mapa indicado.
+function addPortal(p) {
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.06, 40), new THREE.MeshBasicMaterial({ color: p.color }));
+  pad.position.set(p.x, 0.04, p.z);
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.2, 1.2, 3.6, 40, 1, true),
+    new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+  beam.position.set(p.x, 1.8, p.z);
+  const label = signSprite(p.name, cssColor(p.color));
+  label.position.set(p.x, 4.4, p.z); label.scale.set(3.2, 0.8, 1);
+  building.group.add(pad, beam, label);
+}
+
+/** Construye (una sola vez) el mapa `id`. */
+function getWorld(id) {
+  let w = worlds.get(id);
+  if (w) return w;
+  const def = buildMap(id);
+  w = { id, def, group: new THREE.Group(), boxes: [], spheres: [], portals: def.portals };
+  building = w;
+  for (const b of def.boxes) addBox(b.x, b.y, b.z, b.sx, b.sy, b.sz, b.color, { opacity: b.opacity, emissive: b.emissive });
+  for (const b of def.decor) addBox(b.x, b.y, b.z, b.sx, b.sy, b.sz, b.color, { decor: true, emissive: b.emissive });
+  for (const s of def.spheres) addSphere(s.x, s.y, s.z, s.r, s.color);
+  for (const l of def.lights) {
+    const pl = new THREE.PointLight(l.color, l.intensity, l.dist, 2);
+    pl.position.set(l.x, l.y, l.z);
+    w.group.add(pl);
+  }
+  if (def.grid) {
+    const grid = new THREE.GridHelper(60, 60, 0x2f6a2c, 0x3d7d39);
+    grid.position.y = 0.01;
+    w.group.add(grid);
+  }
+  for (const p of def.portals) addPortal(p);
+  if (id === LOBBY) buildLobbyExtras();
+  building = null;
+  worlds.set(id, w);
+  return w;
+}
+
+// ---------- Plaza: cursos NOOB (verde, a la izquierda) y PRO (rojo, a la derecha), computadora y tienda ----------
+function buildLobbyExtras() {
+  for (const course of Object.values(COURSES)) {
+    const steps = courseSteps(course);
+    steps.forEach((s, i) => {
+      const color = i === 0 ? 0x35c7ff : i === steps.length - 1 ? 0xffcf3d : course.color;
+      if (s.r) addSphere(s.x, s.top - s.r, s.z, s.r, color);
+      else addBox(s.x, s.top - 0.3, s.z, s.sx, 0.6, s.sz, color);
+    });
+    const st = course.start, fin = course.finish;
+    const a = signSprite(course.name + ' · SALIDA', cssColor(course.color)); a.position.set(st.x, st.top + 3.4, st.z);
+    const b = signSprite('META ' + course.name.replace('CURSO ', ''), '#ffcf3d'); b.position.set(fin.x, fin.top + 3.4, fin.z);
+    building.group.add(a, b);
+  }
+  buildKiosk();
+  buildShop();
+}
+
+// ---------- Raycasts contra el mapa ----------
+// (rayBox y raySphere vienen de locomotion.js, compartidos con la física VR)
+function cast(o, d, maxT) {
+  let best = null;
+  for (const b of boxes) { const h = rayBox(o, d, b, maxT); if (h && (!best || h.t < best.t)) best = h; }
+  for (const s of spheres) { const h = raySphere(o, d, s, maxT); if (h && (!best || h.t < best.t)) best = h; }
+  return best;
+}
+const loco = new VRLocomotion({ boxes, spheres });
+
+// ---------- Robots ----------
+function makeRobot(color, isLocal) {
+  const g = new THREE.Group();
+  // Diseño del boceto: cabeza redonda con dos ojos y boca, torso ovalado y dos brazos grandes ovalados.
+  const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.45 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x161a24, roughness: 0.4 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 28, 20), mat);
+  const eyeGeo = new THREE.SphereGeometry(0.032, 14, 10);
+  const eyeL = new THREE.Mesh(eyeGeo, dark), eyeR = new THREE.Mesh(eyeGeo, dark);
+  eyeL.scale.set(0.8, 1.25, 0.5); eyeR.scale.copy(eyeL.scale);
+  eyeL.position.set(-0.062, 0.035, -0.155); eyeR.position.set(0.062, 0.035, -0.155);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.007, 8, 24, Math.PI), dark);
+  mouth.rotation.z = Math.PI; // arco hacia abajo = sonrisa
+  mouth.position.set(0, -0.02, -0.162);
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), mat);
+  torso.scale.set(0.16, 0.26, 0.13);
+  torso.position.y = -0.42;
+  const handGeo = new THREE.SphereGeometry(0.1, 18, 14);
+  const handL = new THREE.Mesh(handGeo, mat), handR = new THREE.Mesh(handGeo, mat);
+  const armGeo = new THREE.SphereGeometry(1, 24, 16); // se estira hasta ser un óvalo largo
+  const armL = new THREE.Mesh(armGeo, mat), armR = new THREE.Mesh(armGeo, mat);
+  armL.scale.setScalar(0.001); armR.scale.setScalar(0.001); // invisibles hasta el primer updateRobot
+  const headParts = [head, eyeL, eyeR, mouth, torso];
+  headParts.forEach((m) => g.add(m));
+  const cos = new THREE.Group(); // cosméticos (Headphones, Early Access Badge...)
+  g.add(cos);
+  scene.add(g, handL, handR, armL, armR);
+  if (isLocal) { headParts.forEach((m) => (m.visible = false)); cos.visible = false; }
+  // en primera persona los brazos son más finos para no tapar la vista
+  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.045 : 0.115 };
+}
+function applyCosmetics(rb, equipped) {
+  const key = SLOTS.map((s) => (equipped && equipped[s]) || '').join('|');
+  if (rb.cosKey === key) return;
+  rb.cosKey = key;
+  rb.cos.clear();
+  for (const s of SLOTS) {
+    const m = equipped && equipped[s] ? buildCosmetic(equipped[s]) : null;
+    if (m) rb.cos.add(m);
+  }
+}
+function placeArm(mesh, a, b, thick) {
+  const dir = b.clone().sub(a), len = Math.max(dir.length(), 0.001);
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.scale.set(thick, len / 2 + 0.05, thick);
+  mesh.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir.normalize());
+}
+function updateRobot(rb, head, yaw, lw, rw) {
+  rb.g.position.copy(head);
+  rb.g.rotation.y = yaw;
+  const right = new V3(Math.cos(yaw), 0, -Math.sin(yaw));
+  const shL = head.clone().addScaledVector(right, -0.27).add(new V3(0, -0.26, 0));
+  const shR = head.clone().addScaledVector(right, 0.27).add(new V3(0, -0.26, 0));
+  rb.handL.position.copy(lw); rb.handR.position.copy(rw);
+  placeArm(rb.armL, shL, lw, rb.armThick); placeArm(rb.armR, shR, rw, rb.armThick);
+}
+function setTagged(rb, tagged) {
+  if (rb.tagged === tagged) return;
+  rb.tagged = tagged;
+  rb.mat.color.setHex(tagged ? 0xff4a1a : rb.color);
+  rb.mat.emissive.setHex(tagged ? 0xff2200 : 0x000000);
+  rb.mat.emissiveIntensity = tagged ? 0.7 : 0;
+}
+function removeRobot(rb) {
+  [rb.g, rb.handL, rb.handR, rb.armL, rb.armR].forEach((o) => scene.remove(o));
+}
+function nameSprite(text) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const x = c.getContext('2d');
+  x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(0, 8, 256, 48);
+  x.fillStyle = '#fff'; x.fillText(text, 128, 33);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  s.scale.set(1, 0.25, 1); s.position.y = 0.45; s.renderOrder = 10;
+  return s;
+}
+
+// ---------- Estado del jugador ----------
+const pos = SPAWN.clone(), vel = new V3();
+let yaw = 0, pitch = 0, time = 0;
+const up = new V3(0, 1, 0);
+const local = makeRobot(profile.color, true);
+const hands = [-1, 1].map((side) => ({ side, down: false, pressed: false, hit: null, pos: new V3(), origin: new V3(), dir: new V3() }));
+const head = new V3();
+
+// ---------- Computadora (nombre, color, cosméticos y cursos) y maniquí ----------
+const SCREEN_C = new V3(0, 1.2, 3.605), SCREEN_W = 2.4, SCREEN_H = 1.4; // la pantalla mira hacia +Z (hacia el inicio)
+const screenCanvas = document.createElement('canvas');
+screenCanvas.width = SCREEN.W; screenCanvas.height = SCREEN.H;
+const screenCtx = screenCanvas.getContext('2d');
+const screenTex = new THREE.CanvasTexture(screenCanvas);
+screenTex.colorSpace = THREE.SRGBColorSpace;
+function buildKiosk() {
+  addBox(0, 0.25, 3, 2.6, 0.5, 1.2, 0x2a3350); // base con colisión; el monitor es solo visual para poder tocarlo con las manos
+  const casing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.6, 0.2), new THREE.MeshStandardMaterial({ color: 0x1a2038, roughness: 0.6 }));
+  casing.position.set(0, 1.2, 3.5);
+  const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), new THREE.MeshBasicMaterial({ map: screenTex }));
+  screenMesh.position.copy(SCREEN_C);
+  building.group.add(casing, screenMesh);
+}
+
+const computer = new Computer({
+  profile, courses: COURSES,
+  actions: {
+    teleport: (target) => teleportTo(target),
+    changed: (kind) => onProfileChanged(kind),
+    say: (text, color) => notice(text, color || '#ffffff'),
+  },
+});
+function refreshScreen() {
+  if (!computer.dirty) return;
+  computer.draw(screenCtx);
+  screenTex.needsUpdate = true;
+  computer.dirty = false;
+}
+
+// El maniquí muestra tu robot tal como lo ven los demás.
+const mannequin = makeRobot(profile.color, false);
+applyCosmetics(mannequin, profile.equipped);
+{
+  const mh = new V3(-2.6, 1.15, 3.1);
+  updateRobot(mannequin, mh, Math.PI, mh.clone().add(new V3(-0.34, -0.62, 0.02)), mh.clone().add(new V3(0.34, -0.62, 0.02)));
+}
+
+function setMannequinVisible(v) {
+  for (const o of [mannequin.g, mannequin.handL, mannequin.handR, mannequin.armL, mannequin.armR]) o.visible = v;
+}
+
+function onProfileChanged(kind) {
+  if (kind === 'color') {
+    for (const rb of [local, mannequin]) { rb.color = profile.color; if (!rb.tagged) rb.mat.color.setHex(profile.color); }
+  }
+  if (kind === 'cos') applyCosmetics(mannequin, profile.equipped);
+  if (kind === 'name') document.getElementById('name').value = profile.name;
+  refreshShop();
+  sendProfile();
+}
+
+// Punto de la pantalla al que apunta un rayo (desde la mira en PC/táctil), o null.
+function screenHit(o, d) {
+  if (!inLobby() || d.z >= -1e-4) return null;
+  const t = (SCREEN_C.z - o.z) / d.z;
+  if (t < 0 || t > 6) return null;
+  const x = o.x + d.x * t - SCREEN_C.x, y = o.y + d.y * t - SCREEN_C.y;
+  if (Math.abs(x) > SCREEN_W / 2 || Math.abs(y) > SCREEN_H / 2) return null;
+  return { u: x / SCREEN_W + 0.5, v: 0.5 - y / SCREEN_H };
+}
+let uiCool = 0;
+function uiPress(hit) {
+  const now = performance.now();
+  if (now - uiCool < 220) return;
+  uiCool = now;
+  computer.pressAt(hit.u, hit.v);
+}
+// En VR se "toca" la pantalla con la mano: se pulsa al cruzar el plano a 9 cm de ella.
+const pokePrevZ = { left: 9, right: 9 };
+let pokeHover = false;
+function pokeScreen(name, p) {
+  if (!inLobby()) return;
+  const lx = p.x - SCREEN_C.x, ly = p.y - SCREEN_C.y, z = p.z - SCREEN_C.z;
+  const inside = Math.abs(lx) <= SCREEN_W / 2 && Math.abs(ly) <= SCREEN_H / 2 && z > -0.2 && z < 0.3;
+  if (inside) {
+    const hit = { u: lx / SCREEN_W + 0.5, v: 0.5 - ly / SCREEN_H };
+    computer.hoverAt(hit.u, hit.v);
+    pokeHover = true;
+    if (pokePrevZ[name] > 0.09 && z <= 0.09) { uiPress(hit); pulse(name); }
+  }
+  pokePrevZ[name] = inside ? z : 9;
+}
+
+// ---------- Cursos: cronómetro, récords y monedas ----------
+const tracker = new CourseTracker(COURSES);
+function handleCourse() {
+  if (!inLobby()) return;
+  const now = performance.now() / 1000;
+  for (const ev of tracker.update(head, now)) {
+    const c = COURSES[ev.course];
+    if (ev.type === 'start') notice('¡' + c.name + '! A correr', cssColor(c.color));
+    else if (ev.type === 'reset') notice('Intento reiniciado', '#ffd23d');
+    else if (ev.type === 'finish') {
+      const r = profile.recordTime(c.id, ev.time);
+      const coins = r.first ? c.reward.first : c.reward.repeat;
+      profile.addCoins(coins);
+      notice('¡META! ' + ev.time.toFixed(1) + ' s' + (r.improved && !r.first ? ' (récord)' : '') + ' · +' + coins + ' monedas', '#ffcf3d');
+      computer.build(); // refresca mejores tiempos y monedas en la pantalla
+      refreshShop();
+    }
+  }
+}
+function courseLine() {
+  const el = tracker.elapsed(performance.now() / 1000);
+  return (tracker.running ? COURSES[tracker.running].name + ': ' + el.toFixed(1) + ' s · ' : '') + profile.coins + ' monedas';
+}
+/** Pone al jugador en (x, z) sobre una superficie de altura `top`, en PC o en VR. */
+function placeAt(x, z, top) {
+  if (renderer.xr.isPresenting) {
+    loco.placeHead(rig, camera.position, x, top + 1.0, z);
+    loco.resyncHands(rig, { left: gripLocal('left'), right: gripLocal('right') });
+  } else {
+    pos.set(x, top + 0.6, z);
+    vel.set(0, 0, 0);
+  }
+}
+function teleportTo(target) {
+  let x, z, top;
+  if (target === 'spawn') { x = SPAWN.x; z = SPAWN.z; top = 0; }
+  else { const s = COURSES[target].start; x = s.x; z = s.z; top = s.top; }
+  tracker.reset();
+  placeAt(x, z, top);
+}
+
+// ---------- Tienda física: cosméticos sobre pedestales ----------
+const shopUI = { entries: [], coins: null };
+function labelSprite(w, h, cw, ch) {
+  const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+  sprite.scale.set(w, h, 1);
+  return { canvas, tex, sprite };
+}
+function paintLabel(l, title, line, color) {
+  const x = l.canvas.getContext('2d'), w = l.canvas.width, h = l.canvas.height;
+  x.clearRect(0, 0, w, h);
+  x.fillStyle = 'rgba(8,12,28,.85)'; x.fillRect(0, 0, w, h);
+  x.strokeStyle = color; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  const fit = (text, size) => { x.font = 'bold ' + size + 'px sans-serif'; while (x.measureText(text).width > w - 30 && size > 14) { size -= 2; x.font = 'bold ' + size + 'px sans-serif'; } };
+  x.fillStyle = '#fff'; fit(title, 48); x.fillText(title, w / 2, h * 0.34);
+  x.fillStyle = color; fit(line, 32); x.fillText(line, w / 2, h * 0.72);
+  l.tex.needsUpdate = true;
+}
+function buildShop() {
+  const cx = SHOP.x, back = SHOP.z - SHOP.d / 2, front = SHOP.z + SHOP.d / 2;
+  const WALL = 0x9b87e0, DARK = 0x6d5bb0;
+  addBox(cx, 0.02, SHOP.z, SHOP.w - 0.6, 0.04, SHOP.d - 0.6, 0x4a3b78, { decor: true });          // alfombra
+  addBox(cx, 2.0, back + 0.2, SHOP.w, 4, 0.4, WALL);                                              // pared del fondo
+  addBox(cx - SHOP.w / 2 + 0.2, 2.0, SHOP.z, 0.4, 4, SHOP.d, WALL);                               // paredes laterales
+  addBox(cx + SHOP.w / 2 - 0.2, 2.0, SHOP.z, 0.4, 4, SHOP.d, WALL);
+  addBox(cx, 4.2, SHOP.z, SHOP.w + 0.4, 0.4, SHOP.d + 0.4, DARK);                                 // techo
+  addBox(cx, 3.6, front - 0.2, SHOP.w, 0.8, 0.4, DARK);                                           // dintel de la puerta
+  addBox(cx + 3, 0.55, SHOP.z + 2.6, 3, 1.1, 0.9, 0x3a3358);                                      // mostrador
+  addBox(cx + 3, 1.15, SHOP.z + 2.6, 0.9, 0.1, 0.5, 0x7dffb0, { decor: true, emissive: true });   // caja registradora
+  const lamp = new THREE.PointLight(0xfff0d0, 14, 14, 2); // luz cálida dentro del local
+  lamp.position.set(cx, 3.0, SHOP.z);
+  building.group.add(lamp);
+  const sign = signSprite('TIENDA', '#ffd23d');
+  sign.position.set(cx, 5.4, front); sign.scale.set(6, 1.5, 1);
+  building.group.add(sign);
+  const coins = labelSprite(3.4, 0.7, 512, 105);
+  coins.sprite.position.set(cx, 3.45, back + 0.5);
+  coins.sprite.position.x = cx + 3.6; // a un lado, para no quedar tapado por los carteles de los pedestales
+  building.group.add(coins.sprite);
+  shopUI.coins = coins;
+  shopUI.entries = shopItems().map((it) => {
+    addBox(it.x, 0.45, it.z, 1.3, 0.9, 1.3, 0x2a2f45);                                              // pedestal
+    addBox(it.x, 0.93, it.z, 1.4, 0.06, 1.4, 0x3da5ff, { decor: true, emissive: true });
+    const holder = new THREE.Group();
+    holder.position.set(it.x, it.y, it.z);
+    const model = buildCosmetic(it.id);
+    if (model) { model.position.set(0, 0, 0); model.scale.setScalar(it.slot === 'badge' ? 5.5 : 2.4); holder.add(model); }
+    building.group.add(holder);
+    const label = labelSprite(2.9, 0.85, 512, 150);
+    label.sprite.position.set(it.x, 2.6, it.z);
+    building.group.add(label.sprite);
+    return { item: it, holder, label };
+  });
+  refreshShop();
+}
+function refreshShop() {
+  if (!shopUI.coins) return;
+  paintLabel(shopUI.coins, coinsLabel(profile), 'Gana más en los cursos', '#7dffb0');
+  for (const e of shopUI.entries) {
+    const l = shopLabel(profile, e.item);
+    paintLabel(e.label, l.title, l.line, l.color);
+  }
+}
+// Comprar pide confirmación: la primera vez que tocas un objeto de pago, avisa; hay que tocarlo otra vez en 3 s.
+let pendingBuy = null;
+function shopPress(id) {
+  const now = performance.now();
+  if (needsConfirm(profile, id) && !(pendingBuy && pendingBuy.id === id && now < pendingBuy.until)) {
+    pendingBuy = { id, until: now + 3000 };
+    const it = shopItems().find((x) => x.id === id);
+    notice('Toca otra vez para comprar ' + it.name + ' (' + it.price + ' monedas)', '#ffd23d');
+    return;
+  }
+  pendingBuy = null;
+  const r = shopPurchase(profile, id);
+  if (!r) return;
+  notice(r.text, r.color);
+  if (r.changed) { applyCosmetics(local, profile.equipped); applyCosmetics(mannequin, profile.equipped); refreshShop(); computer.build(); sendProfile(); }
+}
+let shopHover = null;
+function updateShopVisuals() {
+  if (!inLobby()) return;
+  for (const e of shopUI.entries) {
+    // la insignia es una placa plana: se balancea de cara al cliente en vez de girar
+    e.holder.rotation.y = e.item.slot === 'badge' ? Math.PI + Math.sin(time * 1.2) * 0.5 : time * 0.9;
+    e.holder.position.y = e.item.y + Math.sin(time * 1.6 + e.item.x) * 0.05;
+    e.holder.scale.setScalar(shopHover === e.item.id ? 1.18 : 1);
+  }
+}
+// En VR se toca el objeto con la mano (una vez por contacto).
+const touchPrev = { left: null, right: null };
+function pokeShop(name, p) {
+  if (!inLobby()) { touchPrev[name] = null; return; }
+  const id = touchShopItem(p);
+  if (id && touchPrev[name] !== id) { shopPress(id); pulse(name); }
+  touchPrev[name] = id;
+}
+
+// ---------- Mapas: viajar con los portales ----------
+let currentMapId = LOBBY, portalCool = 0;
+const startMapParam = new URLSearchParams(location.search).get('map');
+function activateWorld(w) {
+  if (world) scene.remove(world.group);
+  world = w;
+  scene.add(w.group);
+  boxes.length = 0; boxes.push(...w.boxes);
+  spheres.length = 0; spheres.push(...w.spheres);
+  const d = w.def;
+  scene.background.setHex(d.sky);
+  scene.fog.color.setHex(d.fog.color); scene.fog.near = d.fog.near; scene.fog.far = d.fog.far;
+  hemi.intensity = d.light.hemi; sun.intensity = d.light.sun; sun.visible = d.light.sun > 0; // una luz menos en la cueva (más rápido en visores)
+  SPAWN.set(d.spawn.x + (Math.random() - 0.5) * d.spawn.jitter, 0.5, d.spawn.z);
+  setMannequinVisible(w.id === LOBBY);
+  currentMapId = w.id;
+}
+function enterMap(id, first = false) {
+  activateWorld(getWorld(id));
+  tracker.reset();
+  for (const r of remotes.values()) removeRobot(r.rb);
+  remotes.clear(); itId = null; lastIt = undefined;
+  voice.closeAll();
+  if (first) {
+    pos.copy(SPAWN);
+    const at = (qs.get('at') || '').split(',').map(Number); // ?at=x,z,giro en grados: aparecer en otro punto (útil para capturas y pruebas)
+    if (at.length >= 2 && at.every(Number.isFinite)) { pos.set(at[0], 0.6, at[1]); yaw = ((at[2] || 0) * Math.PI) / 180; }
+    return;
+  }
+  placeAt(SPAWN.x, SPAWN.z, 0);
+  portalCool = performance.now() + 2500;
+  notice('Mapa: ' + mapInfo(id).name, cssColor(mapInfo(id).color));
+  sendMap();
+}
+function handlePortals() {
+  if (!world || performance.now() < portalCool) return;
+  const p = portalAt(head, world.portals);
+  if (p) enterMap(p.to);
+}
+
+// ---------- Red ----------
+// El servidor (server.js) reparte a los jugadores en salas: una por mapa, y con código si es privada.
+// Para jugar con gente de otras redes, el juego tiene que estar en internet (ver README: "Multijugador en línea").
+const remotes = new Map();
+// Chat de voz: la señalización viaja por el mismo WebSocket del juego.
+const voice = new Voice({ send: (to, d) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'rtc', to, d })); } });
+const publicInfo = () => ({ ...profile.publicInfo(), voice: voice.active });
+
+let ws = null, myId = null, itId = null, lastIt = undefined, myName = 'Robot';
+let netState = 'idle'; // idle (aún no jugó) · connecting · online · offline (reintentando)
+let netTries = 0, reconnectTimer = null, wantOnline = false, serverUrl = null, roomCode = '', sentCode = '', roomInfo = null;
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } },
+};
+const qs = new URLSearchParams(location.search);
+const wantedServer = () => qs.get('server') || $('server').value.trim();
+const targetUrl = () => resolveServerUrl(wantedServer(), location) || resolveServerUrl('', location);
+const mapName = () => (mapInfo(currentMapId) || { name: '' }).name;
+const roomName = () => (roomInfo ? (roomInfo.code ? ' · SALA ' + roomInfo.code : ' · #' + roomInfo.n) : '');
+
+function netLine() {
+  if (netState === 'online') return 'Jugadores: ' + (remotes.size + 1) + ' · ' + mapName() + roomName();
+  if (netState === 'connecting') return 'Conectando al servidor… (la primera vez puede tardar hasta 1 minuto)';
+  if (netState === 'offline') return 'Sin conexión con el servidor · reintentando…';
+  return 'Modo solo (sin servidor)';
+}
+function updateNet() {
+  const el = $('net');
+  if (!el) return;
+  if (netState === 'online') { el.textContent = '✔ En línea · ' + mapName() + roomName(); el.style.color = '#7dffb0'; }
+  else if (netState === 'connecting') { el.textContent = 'Conectando a ' + (serverUrl || '…'); el.style.color = '#ffd23d'; }
+  else if (netState === 'offline') { el.textContent = '✖ Sin conexión (' + (serverUrl || '') + ') · reintentando'; el.style.color = '#ff8a7a'; }
+  else { el.textContent = ''; }
+}
+function connect() {
+  clearTimeout(reconnectTimer);
+  serverUrl = targetUrl();
+  netState = 'connecting'; updateNet();
+  let sock;
+  try { sock = new WebSocket(serverUrl); } catch { scheduleReconnect(); return; }
+  ws = sock;
+  sock.onopen = () => {
+    if (ws !== sock) return;
+    netTries = 0; netState = 'online';
+    sentCode = roomCode;
+    sock.send(JSON.stringify({ t: 'join', ...publicInfo(), name: myName, map: currentMapId, code: roomCode }));
+    updateNet();
+  };
+  sock.onmessage = (e) => {
+    if (ws !== sock) return;
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.t === 'welcome') { myId = m.id; voice.setIce(m.ice); }
+    else if (m.t === 'rtc') voice.signal(m.from, m.d);
+    else if (m.t === 'room') { roomInfo = m; updateNet(); }
+    else if (m.t === 'notice') notice(String(m.text || '').slice(0, 80), '#ffd23d');
+    else if (m.t === 'snap') onSnap(m);
+  };
+  sock.onclose = () => {
+    if (ws !== sock) return;
+    myId = null; itId = null; lastIt = undefined; roomInfo = null;
+    voice.closeAll();
+    for (const r of remotes.values()) removeRobot(r.rb);
+    remotes.clear();
+    scheduleReconnect();
+  };
+  sock.onerror = () => {};
+}
+function scheduleReconnect() {
+  netState = 'offline'; updateNet();
+  if (wantOnline) reconnectTimer = setTimeout(connect, backoff(netTries++));
+}
+function sendMap() {
+  if (ws && ws.readyState === 1) { sentCode = roomCode; ws.send(JSON.stringify({ t: 'map', map: currentMapId, code: roomCode })); }
+}
+function sendProfile() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'profile', ...publicInfo() }));
+}
+/** Se llama al pulsar JUGAR: conecta, o cambia de servidor/sala si el jugador los cambió en el menú. */
+function goOnline() {
+  roomCode = cleanRoomCode($('room').value);
+  store.set('robottag.room', roomCode);
+  store.set('robottag.server', $('server').value.trim());
+  wantOnline = true;
+  const url = targetUrl();
+  if (ws && url !== serverUrl) { const old = ws; ws = null; old.close(); voice.closeAll(); for (const r of remotes.values()) removeRobot(r.rb); remotes.clear(); connect(); }
+  else if (!ws || ws.readyState > 1) connect();
+  else if (ws.readyState === 1 && roomCode !== sentCode) sendMap();
+}
+function onSnap(m) {
+  window.__lastSnap = m.map + ":" + m.players.map((p) => p.name).join(",") + " cur=" + currentMapId;
+  if (m.map && m.map !== currentMapId) return; // resto de la sala anterior
+  const seen = new Set();
+  for (const p of m.players) {
+    if (p.id === myId) { local.color = p.c; if (!local.tagged) local.mat.color.setHex(p.c); continue; }
+    seen.add(p.id);
+    let r = remotes.get(p.id);
+    if (!r) {
+      const rb = makeRobot(p.c, false);
+      const tag = nameSprite(p.name); rb.g.add(tag);
+      r = { rb, name: p.name, head: new V3(...p.p), yaw: p.yaw, l: new V3(...(p.l || p.p)), r: new V3(...(p.r || p.p)), tp: null };
+      remotes.set(p.id, r);
+    }
+    if (p.c !== r.rb.color) { r.rb.color = p.c; if (!r.rb.tagged) r.rb.mat.color.setHex(p.c); }
+    applyCosmetics(r.rb, p.cos);
+    r.name = p.name;
+    r.voice = !!p.v;
+    r.tp = { head: new V3(...p.p), yaw: p.yaw, l: new V3(...(p.l || p.p)), r: new V3(...(p.r || p.p)) };
+  }
+  for (const [id, r] of remotes) if (!seen.has(id)) { removeRobot(r.rb); remotes.delete(id); }
+  voice.sync(myId, [...remotes].filter(([, r]) => r.voice).map(([id]) => id));
+  itId = m.it;
+  if (itId !== lastIt && itId !== null) {
+    if (itId === myId) notice('¡Eres LAVA! Toca a alguien', '#ff6a3a');
+    else notice('¡' + (remotes.get(itId)?.name || 'Alguien') + ' es LAVA!', '#ffd23d');
+  }
+  lastIt = itId;
+}
+let noticeTimer;
+function notice(text, color) {
+  const n = document.getElementById('notice');
+  n.textContent = text; n.style.color = color; n.style.opacity = 1;
+  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => (n.style.opacity = 0), 2200);
+  if (inVR) vrNotice(text, color);
+}
+
+// ---------- Entrada ----------
+let playing = false;
+const isTouch = matchMedia('(pointer: coarse)').matches;
+const canvas = renderer.domElement;
+document.getElementById('play').onclick = start;
+document.getElementById('name').value = profile.name || '';
+$('room').value = cleanRoomCode(qs.get('room') || store.get('robottag.room'));
+$('server').value = qs.get('server') || store.get('robottag.server');
+if ($('server').value) $('adv').open = true;
+$('ver').textContent = 'Robot Tag v' + VERSION;
+document.getElementById('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
+$('voice').checked = store.get('robottag.voice') !== '0';
+/** Enciende el chat de voz si está marcado en el menú (hay que llamarlo desde un clic: pide permiso de micrófono). */
+async function ensureVoice() {
+  const want = $('voice').checked;
+  store.set('robottag.voice', want ? '1' : '0');
+  if (want && voice.state === 'off') { await voice.enable(); sendProfile(); }
+  else if (!want && voice.state !== 'off') { voice.disable(); sendProfile(); }
+  syncMicButton();
+}
+function syncMicButton() {
+  const b = $('mic');
+  b.style.display = isTouch && playing && voice.state === 'on' ? 'block' : 'none';
+  b.classList.toggle('muted', voice.muted);
+  b.textContent = voice.muted ? '🔇' : '🎤';
+}
+function toggleMic() {
+  const m = voice.toggleMute();
+  if (m === null) return;
+  syncMicButton();
+  notice(m ? 'Micrófono silenciado' : 'Micrófono activado', m ? '#ff8a7a' : '#7dffb0');
+  if (inVR) pulse('left');
+}
+$('mic').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleMic(); });
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && playing && !e.repeat && document.activeElement !== $('name') && document.activeElement !== $('room') && document.activeElement !== $('server')) toggleMic();
+});
+async function start() {
+  await ensureVoice(); // primero el permiso del micrófono: el aviso del navegador no debe tapar la partida
+  myName = document.getElementById('name').value.trim() || 'Robot' + Math.floor(Math.random() * 99);
+  profile.setName(myName);
+  document.getElementById('menu').style.display = 'none';
+  playing = true;
+  if (isTouch) document.getElementById('touch').style.display = 'block';
+  else canvas.requestPointerLock();
+  syncMicButton();
+  goOnline();
+}
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement !== canvas && playing && !inVR) document.getElementById('menu').style.display = 'flex';
+});
+canvas.addEventListener('click', () => { if (playing && !isTouch && document.pointerLockElement !== canvas) canvas.requestPointerLock(); });
+
+// Controles táctiles: arrastrar para mirar + dos botones de mano.
+if (isTouch) {
+  const setHand = (i, down) => { const h = hands[i]; h.down = down; if (down) h.pressed = true; };
+  for (const [id, i] of [['tl', 0], ['tr', 1]]) {
+    const b = document.getElementById(id);
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+      setHand(i, true);
+    });
+    const up = () => setHand(i, false);
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+  }
+  let lookId = null, lx = 0, ly = 0;
+  canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; lookId = e.pointerId; lx = e.clientX; ly = e.clientY; });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== lookId) return;
+    yaw -= (e.clientX - lx) * 0.005;
+    pitch = Math.max(-1.5, Math.min(1.5, pitch - (e.clientY - ly) * 0.005));
+    lx = e.clientX; ly = e.clientY;
+  });
+  const endLook = (e) => { if (e.pointerId === lookId) lookId = null; };
+  canvas.addEventListener('pointerup', endLook);
+  canvas.addEventListener('pointercancel', endLook);
+}
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== canvas) return;
+  yaw -= e.movementX * 0.0022;
+  pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.0022));
+});
+document.addEventListener('mousedown', (e) => {
+  if (document.pointerLockElement !== canvas) return;
+  const h = e.button === 0 ? hands[0] : e.button === 2 ? hands[1] : null;
+  if (h) { h.down = true; h.pressed = true; }
+});
+document.addEventListener('mouseup', (e) => {
+  const h = e.button === 0 ? hands[0] : e.button === 2 ? hands[1] : null;
+  if (h) h.down = false;
+});
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- Físicas ----------
+function collideBody() {
+  let grounded = false;
+  for (const b of boxes) {
+    const cp = new V3(Math.max(b.min.x, Math.min(pos.x, b.max.x)), Math.max(b.min.y, Math.min(pos.y, b.max.y)), Math.max(b.min.z, Math.min(pos.z, b.max.z)));
+    const d = pos.clone().sub(cp), dist = d.length();
+    if (dist < BODY_R) {
+      let n, pen;
+      if (dist > 1e-6) { n = d.divideScalar(dist); pen = BODY_R - dist; } else { n = new V3(0, 1, 0); pen = BODY_R; }
+      pos.addScaledVector(n, pen);
+      const vn = vel.dot(n);
+      if (vn < 0) vel.addScaledVector(n, -vn);
+      if (n.y > 0.6) grounded = true;
+    }
+  }
+  for (const s of spheres) {
+    const d = pos.clone().sub(s.c), dist = d.length(), minD = BODY_R + s.r;
+    if (dist < minD) {
+      const n = dist > 1e-6 ? d.divideScalar(dist) : new V3(0, 1, 0);
+      pos.addScaledVector(n, minD - dist);
+      const vn = vel.dot(n);
+      if (vn < 0) vel.addScaledVector(n, -vn);
+      if (n.y > 0.6) grounded = true;
+    }
+  }
+  return grounded;
+}
+function pushFrom(h, fwdH) {
+  const n = h.hit.n;
+  let dir;
+  if (n.y > 0.5) dir = n.clone().multiplyScalar(0.6).addScaledVector(fwdH, 0.55);
+  else dir = n.clone().add(new V3(0, 0.35, 0));
+  dir.normalize();
+  const k = 0.75 + 0.25 * (1 - h.hit.t / REACH);
+  vel.addScaledVector(dir, PUSH * k);
+  if (vel.length() > MAX_V) vel.setLength(MAX_V);
+}
+function step(dt) {
+  const cp = Math.cos(pitch);
+  const fwd = new V3(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp);
+  const right = new V3(Math.cos(yaw), 0, -Math.sin(yaw));
+  const fwdH = new V3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  head.copy(pos).add(new V3(0, 0.15, 0));
+
+  // Si la mira apunta a la pantalla de la computadora, el "clic" pulsa botones en vez de empujar.
+  const sh = screenHit(head, fwd);
+  if (sh) computer.hoverAt(sh.u, sh.v); else computer.clearHover();
+  // Lo mismo con los objetos de la tienda (a menos de 4 m)
+  const sp = !sh && inLobby() ? pickShopItem(head, fwd, 4) : null;
+  shopHover = sp ? sp.id : null;
+
+  let gripping = false;
+  for (const h of hands) {
+    h.origin.copy(head).addScaledVector(right, 0.22 * h.side).addScaledVector(up, -0.18);
+    h.dir.copy(fwd).addScaledVector(right, 0.12 * h.side).normalize();
+    h.hit = h.down ? cast(h.origin, h.dir, REACH) : null;
+    if (h.pressed) { if (sh) uiPress(sh); else if (sp) shopPress(sp.id); else if (h.hit) pushFrom(h, fwdH); h.pressed = false; }
+    if (h.down && h.hit) gripping = true;
+    let target;
+    if (h.hit) target = h.hit.p.clone().addScaledVector(h.hit.n, 0.08);
+    else if (h.down) target = h.origin.clone().addScaledVector(h.dir, REACH * 0.9);
+    else target = h.origin.clone().addScaledVector(h.dir, 0.5).addScaledVector(up, -0.12 + Math.sin(time * 2 + h.side) * 0.015);
+    h.pos.lerp(target, 1 - Math.exp(-28 * dt));
+  }
+
+  const sub = Math.max(1, Math.ceil(dt / (1 / 90)));
+  const sdt = dt / sub;
+  for (let i = 0; i < sub; i++) {
+    vel.y += GRAVITY * sdt;
+    vel.multiplyScalar(Math.exp(-AIR_DRAG * sdt));
+    if (gripping) vel.multiplyScalar(Math.exp(-GRIP_DAMP * sdt));
+    pos.addScaledVector(vel, sdt);
+    const grounded = collideBody();
+    if (grounded) { const f = Math.exp(-GROUND_FRICTION * sdt); vel.x *= f; vel.z *= f; }
+  }
+  if (pos.y < -15) { pos.copy(SPAWN); vel.set(0, 0, 0); }
+
+  head.copy(pos).add(new V3(0, 0.15, 0));
+  camera.position.copy(head);
+  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  updateRobot(local, head, yaw, hands[0].pos, hands[1].pos);
+  setTagged(local, itId !== null && itId === myId);
+  handleCourse();
+  handlePortals();
+}
+
+// ---------- VR (WebXR) ----------
+// La física de manos vive en locomotion.js (probada en Node). Aquí solo se conectan los mandos,
+// el giro con el stick, la vibración y los paneles dentro del visor.
+const vrBtn = document.getElementById('vr');
+let inVR = false, vrNeedsInit = false, snapReady = true, hudAcc = 0, vrNoticeTimer;
+const SNAP_ANGLE = Math.PI / 4;
+
+const gripNodes = [0, 1].map((i) => {
+  const g = renderer.xr.getControllerGrip(i);
+  g.userData.hand = null;
+  g.addEventListener('connected', (e) => { g.userData.hand = e.data.handedness; });
+  g.addEventListener('disconnected', () => { g.userData.hand = null; });
+  rig.add(g);
+  return g;
+});
+function gripLocal(name) {
+  const g = gripNodes.find((n) => n.userData.hand === name && n.visible);
+  return g ? g.position : null;
+}
+function headYaw() {
+  const f = new V3(0, 0, -1).applyQuaternion(camera.quaternion).applyQuaternion(rig.quaternion);
+  return Math.atan2(-f.x, -f.z);
+}
+
+function makePanel(cw, ch, pw, ph, x, y, z) {
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const tex = new THREE.CanvasTexture(c);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false }));
+  mesh.position.set(x, y, z); mesh.renderOrder = 20; mesh.visible = false;
+  camera.add(mesh);
+  return { mesh, c, ctx: c.getContext('2d'), tex };
+}
+const hudPanel = makePanel(512, 250, 0.32, 0.156, -0.3, -0.27, -0.8);
+const noticePanel = makePanel(1024, 150, 0.9, 0.132, 0, 0.2, -1.2);
+function paint(p, draw) { p.ctx.clearRect(0, 0, p.c.width, p.c.height); draw(p.ctx, p.c); p.tex.needsUpdate = true; }
+function vrNotice(text, color) {
+  paint(noticePanel, (x, c) => {
+    x.fillStyle = 'rgba(8,12,28,.75)'; x.fillRect(0, 0, c.width, c.height);
+    x.font = 'bold 64px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = color; x.fillText(text, c.width / 2, c.height / 2 + 4);
+  });
+  noticePanel.mesh.visible = true;
+  clearTimeout(vrNoticeTimer); vrNoticeTimer = setTimeout(() => (noticePanel.mesh.visible = false), 2200);
+}
+function vrMicText() {
+  if (voice.state === 'on') return voice.muted ? 'Mic: SILENCIADO (X/Y)' : (voice.me.speaking ? 'Mic: hablando…' : 'Mic: activo (X/Y)');
+  if (voice.state === 'listen') return 'Solo escuchas (sin mic)';
+  return '';
+}
+function drawVRHud() {
+  const lava = itId !== null && itId === myId;
+  const l1 = netLine();
+  const l2 = netState !== 'online' ? ' ' : itId === null ? 'Esperando jugadores…' : lava ? '¡ERES LAVA!' : 'Huye de la lava';
+  paint(hudPanel, (x, c) => {
+    x.fillStyle = 'rgba(8,12,28,.7)'; x.fillRect(0, 0, c.width, c.height);
+    x.font = 'bold 36px sans-serif'; x.textAlign = 'left'; x.textBaseline = 'middle';
+    x.fillStyle = '#fff'; x.fillText(l1, 24, 32);
+    x.fillStyle = lava ? '#ff6a3a' : '#ffd23d'; x.fillText(l2, 24, 76);
+    x.fillStyle = '#9fd0ff'; x.fillText(loco.vel.length().toFixed(1) + ' m/s', 24, 120);
+    x.fillStyle = '#7dffb0'; x.fillText(courseLine(), 24, 164);
+    const mic = vrMicText();
+    if (mic) { x.fillStyle = voice.muted || voice.state !== 'on' ? '#ff8a7a' : '#7dffb0'; x.fillText(mic, 24, 208); }
+  });
+}
+
+function pulse(name) {
+  const s = renderer.xr.getSession();
+  if (!s) return;
+  for (const src of s.inputSources) {
+    if (src.handedness !== name || !src.gamepad) continue;
+    try {
+      const a = src.gamepad.hapticActuators && src.gamepad.hapticActuators[0];
+      if (a && a.pulse) a.pulse(0.35, 25);
+      else if (src.gamepad.vibrationActuator) src.gamepad.vibrationActuator.playEffect('dual-rumble', { duration: 25, strongMagnitude: 0.35, weakMagnitude: 0.35 });
+    } catch { /* sin vibración */ }
+  }
+}
+
+// Stick derecho: giro por saltos de 45° alrededor de la cabeza.
+function snapTurn(grips) {
+  const s = renderer.xr.getSession();
+  if (!s) return;
+  let x = 0;
+  for (const src of s.inputSources) {
+    if (src.handedness !== 'right' || !src.gamepad) continue;
+    const ax = src.gamepad.axes;
+    x = ax.length >= 4 ? ax[2] : ax[0] || 0;
+  }
+  if (Math.abs(x) < 0.3) { snapReady = true; return; }
+  if (!snapReady || Math.abs(x) < 0.7) return;
+  snapReady = false;
+  const before = VRLocomotion.toWorld(rig, camera.position);
+  rig.rotation.y -= Math.sign(x) * SNAP_ANGLE;
+  const after = VRLocomotion.toWorld(rig, camera.position);
+  rig.position.add(before.sub(after));
+  loco.resyncHands(rig, grips);
+}
+
+let micBtnDown = false;
+function pollMicButton() {
+  const s = renderer.xr.getSession();
+  if (!s) return;
+  let down = false;
+  for (const src of s.inputSources) {
+    if (src.handedness !== 'left' || !src.gamepad) continue;
+    const b = src.gamepad.buttons;
+    down = !!((b[4] && b[4].pressed) || (b[5] && b[5].pressed)); // X o Y
+  }
+  if (down && !micBtnDown) toggleMic();
+  micBtnDown = down;
+}
+
+function stepVR(dt) {
+  dt = Math.min(Math.max(dt, 0.004), 0.05);
+  const grips = { left: gripLocal('left'), right: gripLocal('right') };
+  if (vrNeedsInit) {
+    loco.placeHead(rig, camera.position, SPAWN.x, 1.4, SPAWN.z);
+    loco.resyncHands(rig, grips);
+    vrNeedsInit = false;
+  }
+  snapTurn(grips);
+  pollMicButton();
+  const r = loco.update(dt, rig, camera.position, grips, { lava: itId !== null && itId === myId });
+  for (const name of r.contacts) pulse(name);
+  if (r.head.y < -15) {
+    loco.placeHead(rig, camera.position, SPAWN.x, 1.4, SPAWN.z);
+    loco.resyncHands(rig, grips);
+  }
+  head.copy(r.head);
+  yaw = headYaw();
+  hands[0].pos.copy(r.left); hands[1].pos.copy(r.right);
+  vel.copy(loco.vel);
+  updateRobot(local, head, yaw, hands[0].pos, hands[1].pos);
+  setTagged(local, itId !== null && itId === myId);
+  pokeHover = false;
+  pokeScreen('left', r.left);
+  pokeScreen('right', r.right);
+  if (!pokeHover) computer.clearHover();
+  pokeShop('left', r.left); pokeShop('right', r.right);
+  handleCourse();
+  handlePortals();
+}
+
+async function enterVR() {
+  vrBtn.disabled = true;
+  const needPrompt = $('voice').checked && voice.state === 'off';
+  await ensureVoice(); // el permiso del micrófono se pide ANTES de entrar en VR (dentro de VR no se puede mostrar)
+  myName = document.getElementById('name').value.trim() || 'Robot' + Math.floor(Math.random() * 99);
+  profile.setName(myName);
+  vrBtn.disabled = true;
+  try {
+    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+    await renderer.xr.setSession(session);
+    session.addEventListener('end', onVREnd);
+    if (document.pointerLockElement) document.exitPointerLock();
+    document.getElementById('menu').style.display = 'none';
+    inVR = true; playing = true; vrNeedsInit = true; snapReady = true;
+    hudPanel.mesh.visible = true;
+    syncMicButton();
+    goOnline();
+  } catch (err) {
+    console.error(err);
+    vrBtn.disabled = false;
+    vrBtn.textContent = needPrompt && /gesture|NotAllowed|Security/i.test(String(err && (err.name + err.message)))
+      ? 'Micrófono listo: pulsa otra vez ENTRAR EN VR'
+      : 'No se pudo iniciar VR: ' + (err && err.message ? err.message : err);
+    return;
+  }
+  vrBtn.disabled = false;
+}
+function onVREnd() {
+  inVR = false;
+  hudPanel.mesh.visible = false; noticePanel.mesh.visible = false;
+  pos.set(head.x, head.y - 0.15, head.z);
+  vel.copy(loco.vel);
+  rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  document.getElementById('menu').style.display = 'flex';
+  vrBtn.disabled = false; vrBtn.textContent = 'ENTRAR EN VR';
+}
+async function initVRButton() {
+  if (!navigator.xr) {
+    vrBtn.textContent = 'VR no disponible aquí (hace falta HTTPS o localhost)';
+    return;
+  }
+  try {
+    if (!(await navigator.xr.isSessionSupported('immersive-vr'))) {
+      vrBtn.textContent = 'No se detectó ningún visor VR';
+      return;
+    }
+  } catch {
+    vrBtn.textContent = 'VR no disponible en este navegador';
+    return;
+  }
+  vrBtn.textContent = 'ENTRAR EN VR';
+  vrBtn.disabled = false;
+  vrBtn.onclick = enterVR;
+}
+initVRButton();
+
+// ---------- Bucle principal ----------
+const hud = document.getElementById('hud');
+function voiceHud() {
+  const st = voice.statusText();
+  if (!st) return '';
+  const names = [...voice.speaking].map((id) => (remotes.get(id) || {}).name).filter(Boolean);
+  const color = voice.state === 'on' && !voice.muted ? '#7dffb0' : '#ff8a7a';
+  return '<br><span style="color:' + color + '">' + st + '</span>'
+    + (names.length ? '<br><span style="color:#9fd0ff">Hablando: ' + names.join(', ').replace(/[<>&]/g, '') + '</span>' : '');
+}
+let last = performance.now(), sendAcc = 0;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now; time += dt;
+  if (renderer.xr.isPresenting) {
+    stepVR(dt);
+    hudAcc += dt;
+    if (hudAcc > 0.25) { hudAcc = 0; drawVRHud(); }
+  } else if (playing && !inVR) step(dt);
+
+  for (const r of remotes.values()) {
+    if (!r.tp) continue;
+    const k = 1 - Math.exp(-18 * dt);
+    r.head.lerp(r.tp.head, k); r.l.lerp(r.tp.l, k); r.r.lerp(r.tp.r, k);
+    let dy = r.tp.yaw - r.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    r.yaw += dy * k;
+    updateRobot(r.rb, r.head, r.yaw, r.l, r.r);
+  }
+  for (const [id, r] of remotes) setTagged(r.rb, id === itId);
+
+  if (voice.active) {
+    const f = new V3(0, 0, -1).transformDirection(camera.matrixWorld);
+    const wp = new V3().setFromMatrixPosition(camera.matrixWorld);
+    const heads = new Map();
+    for (const [id, r] of remotes) heads.set(id, r.head);
+    voice.update(now, { x: wp.x, y: wp.y, z: wp.z, fx: f.x, fy: f.y, fz: f.z, ux: 0, uy: 1, uz: 0 }, heads);
+  }
+
+  sendAcc += dt;
+  if (playing && ws && ws.readyState === 1 && myId !== null && netState === 'online' && sendAcc >= 0.05) {
+    sendAcc = 0;
+    ws.send(JSON.stringify({ t: 's', p: head.toArray(), yaw, l: hands[0].pos.toArray(), r: hands[1].pos.toArray() }));
+  }
+
+  const count = remotes.size + 1;
+  const speed = vel.length().toFixed(1);
+  hud.innerHTML = netLine() + ' · ' + speed + ' m/s'
+    + (netState !== 'online' ? '' : itId === null ? '<br>Esperando más jugadores…' : itId === myId ? '<br><b style="color:#ff6a3a">¡ERES LAVA!</b>' : '<br>Huye de la lava')
+    + '<br><span style="color:#7dffb0">' + courseLine() + '</span>'
+    + voiceHud();
+  updateShopVisuals();
+  refreshScreen();
+  renderer.render(scene, camera);
+}
+enterMap(MAP_INFO.some((m) => m.id === startMapParam) ? startMapParam : LOBBY, true);
+window.__dbg = () => ({ voice: voice.debug(), remotes: remotes.size, map: currentMapId, net: netState, my: myId, it: itId, last: window.__lastSnap });
+renderer.setAnimationLoop(frame);
+</script>
+</body>
+</html>
