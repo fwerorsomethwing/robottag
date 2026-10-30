@@ -68,6 +68,17 @@ El juego solo es "en línea" cuando el servidor está en internet. En tu PC es l
 - **Servidor en otra dirección**: en el menú, "Servidor (avanzado)". Sirve para abrir el cliente desde otro sitio (o desde el APK) apuntando a tu servidor.
 - Si se corta la conexión, el juego reintenta solo.
 
+## Owner Badge y Stick
+
+- **Stick**: un palo de madera que llevas en la mano derecha. Cuesta 30 monedas y se compra en la tienda (pedestal nuevo) o en la computadora. Los demás lo ven.
+- **Owner Badge**: insignia negra con una corona dorada y "OWNER". **No se compra**: solo la lleva el dueño del servidor, y es el servidor quien lo comprueba, así que nadie puede ponérsela editando su navegador.
+  1. En Render, en tu servicio abre **Environment**, pulsa **Add Environment Variable** y crea `OWNER_KEY` con una clave que solo sepas tú (por ejemplo `miClaveLarga2026`). Guarda: Render reinicia el servidor.
+  2. En el juego, abre en el menú **Servidor y dueño (avanzado)**, escribe esa clave en **Clave de dueño** y pulsa JUGAR.
+  3. Sale "¡Eres el DUEÑO!" y la insignia se pone sola. Puedes quitártela o cambiarla por la Early Access en la computadora (página Cosméticos). Se recuerda tu elección.
+  - En local: `OWNER_KEY=miClave npm start` (en Windows PowerShell: `$env:OWNER_KEY="miClave"; npm start`).
+  - Sin `OWNER_KEY` en el servidor, nadie puede ser dueño. Tras 5 claves incorrectas en una conexión se deja de comprobar.
+  - Para que otro sea dueño también, dale la clave. Para quitarla, cambia `OWNER_KEY` en Render.
+
 ## Chat de voz (1.0.2.1)
 
 Hablas con los jugadores de tu sala y suena en 3D desde su robot: más bajo cuanto más lejos está (se oye hasta ~35 m).
@@ -101,7 +112,7 @@ Un local al fondo de la Plaza, enfrente de donde apareces. Los cosméticos flota
 - **Cursos**: a la izquierda de la arena está el **CURSO NOOB** (verde, plataformas grandes) y a la derecha el **CURSO PRO** (rojo, plataformas pequeñas, vigas y una esfera). Párate en la plataforma de salida, sal de ella y el cronómetro empieza; toca la plataforma dorada de la meta para terminar. Si vuelves a la salida, se reinicia.
 - **Monedas**: NOOB da 20 la primera vez (5 después); PRO da 60 (15 después). Ajústalo en `public/courses.js` (`reward`).
 - **Computadora** (en el centro, cerca de la aparición): cambia tu nombre, tu color, tus cosméticos y teletranspórtate a un curso. PC: apunta y haz clic. Móvil: toca un botón de mano mirando la pantalla. VR: toca la pantalla con la mano.
-- **Cosméticos**: *Early Access Badge* (gratis, ya puesto; placa negra con "Early" en verde lima y "Access" en rojo, como en el boceto) y *Headphones* (50 monedas). Los demás jugadores los ven. Precios y catálogo en `public/cosmetics.js`. El perfil se guarda en el navegador.
+- **Cosméticos**: *Stick* (30 monedas), *Owner Badge* (solo dueño) y *Early Access Badge* (gratis, ya puesto; placa negra con "Early" en verde lima y "Access" en rojo, como en el boceto) y *Headphones* (50 monedas). Los demás jugadores los ven. Precios y catálogo en `public/cosmetics.js`. El perfil se guarda en el navegador.
 - Pruebas: `npm test` (locomoción, cursos, cosméticos, computadora, mapas, tienda, red, salas y voz).
 
 ## Controles en PC

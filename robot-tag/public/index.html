@@ -49,7 +49,8 @@
     <input id="name" maxlength="12" placeholder="Tu nombre" value="">
     <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
     <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
-    <details id="adv"><summary>Servidor (avanzado)</summary>
+    <details id="adv"><summary>Servidor y dueño (avanzado)</summary>
+      <input id="ownerkey" type="password" placeholder="Clave de dueño (solo para el dueño del servidor)" autocomplete="off" spellcheck="false">
       <input id="server" placeholder="vacío = este mismo servidor · o https://tu-juego.onrender.com" autocomplete="off" spellcheck="false">
     </details>
     <button id="play">JUGAR EN PC</button>
@@ -279,9 +280,12 @@ function applyCosmetics(rb, equipped) {
   if (rb.cosKey === key) return;
   rb.cosKey = key;
   rb.cos.clear();
+  if (rb.stick) { rb.handR.remove(rb.stick); rb.stick = null; }
   for (const s of SLOTS) {
     const m = equipped && equipped[s] ? buildCosmetic(equipped[s]) : null;
-    if (m) rb.cos.add(m);
+    if (!m) continue;
+    if (s === 'hand') { rb.handR.add(m); rb.stick = m; } // el palo va en la mano derecha (se ve también en primera persona)
+    else rb.cos.add(m);
   }
 }
 function placeArm(mesh, a, b, thick) {
@@ -297,6 +301,7 @@ function updateRobot(rb, head, yaw, lw, rw) {
   const shL = head.clone().addScaledVector(right, -0.27).add(new V3(0, -0.26, 0));
   const shR = head.clone().addScaledVector(right, 0.27).add(new V3(0, -0.26, 0));
   rb.handL.position.copy(lw); rb.handR.position.copy(rw);
+  rb.handR.rotation.y = yaw; // el palo apunta hacia donde mira el robot
   placeArm(rb.armL, shL, lw, rb.armThick); placeArm(rb.armR, shR, rw, rb.armThick);
 }
 function setTagged(rb, tagged) {
@@ -503,7 +508,9 @@ function buildShop() {
     const holder = new THREE.Group();
     holder.position.set(it.x, it.y, it.z);
     const model = buildCosmetic(it.id);
-    if (model) { model.position.set(0, 0, 0); model.scale.setScalar(it.slot === 'badge' ? 5.5 : 2.4); holder.add(model); }
+    if (model) { model.position.set(0, 0, 0); model.scale.setScalar(it.slot === 'badge' ? 5.5 : it.slot === 'hand' ? 1.6 : 2.4);
+      if (it.slot === 'hand') model.position.z = 0.4; // centra el palo sobre el pedestal
+      holder.add(model); }
     building.group.add(holder);
     const label = labelSprite(2.9, 0.85, 512, 150);
     label.sprite.position.set(it.x, 2.6, it.z);
@@ -601,10 +608,12 @@ function handlePortals() {
 const remotes = new Map();
 // Chat de voz: la señalización viaja por el mismo WebSocket del juego.
 const voice = new Voice({ send: (to, d) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'rtc', to, d })); } });
+const ownerKey = () => $('ownerkey').value.trim();
 const publicInfo = () => ({ ...profile.publicInfo(), voice: voice.active });
 
 let ws = null, myId = null, itId = null, lastIt = undefined, myName = 'Robot';
 let netState = 'idle'; // idle (aún no jugó) · connecting · online · offline (reintentando)
+let sentKey = '';
 let netTries = 0, reconnectTimer = null, wantOnline = false, serverUrl = null, roomCode = '', sentCode = '', roomInfo = null;
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -641,8 +650,8 @@ function connect() {
   sock.onopen = () => {
     if (ws !== sock) return;
     netTries = 0; netState = 'online';
-    sentCode = roomCode;
-    sock.send(JSON.stringify({ t: 'join', ...publicInfo(), name: myName, map: currentMapId, code: roomCode }));
+    sentCode = roomCode; sentKey = ownerKey();
+    sock.send(JSON.stringify({ t: 'join', ...publicInfo(), key: ownerKey(), name: myName, map: currentMapId, code: roomCode }));
     updateNet();
   };
   sock.onmessage = (e) => {
@@ -650,6 +659,7 @@ function connect() {
     let m; try { m = JSON.parse(e.data); } catch { return; }
     if (m.t === 'welcome') { myId = m.id; voice.setIce(m.ice); }
     else if (m.t === 'rtc') voice.signal(m.from, m.d);
+    else if (m.t === 'owner') onOwner(!!m.ok);
     else if (m.t === 'room') { roomInfo = m; updateNet(); }
     else if (m.t === 'notice') notice(String(m.text || '').slice(0, 80), '#ffd23d');
     else if (m.t === 'snap') onSnap(m);
@@ -658,6 +668,7 @@ function connect() {
     if (ws !== sock) return;
     myId = null; itId = null; lastIt = undefined; roomInfo = null;
     voice.closeAll();
+    onOwner(false, true);
     for (const r of remotes.values()) removeRobot(r.rb);
     remotes.clear();
     scheduleReconnect();
@@ -674,11 +685,21 @@ function sendMap() {
 function sendProfile() {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'profile', ...publicInfo() }));
 }
+/** Respuesta del servidor a la clave de dueño. Solo el servidor decide quién es dueño. */
+function onOwner(ok, silent = false) {
+  const unlocked = profile.setOwner(ok);
+  applyCosmetics(local, profile.equipped); applyCosmetics(mannequin, profile.equipped);
+  computer.build(); refreshShop(); sendProfile();
+  if (unlocked) notice('¡Eres el DUEÑO! Owner Badge desbloqueado', '#ffcf33');
+  else if (!ok && !silent && ownerKey()) notice('Clave de dueño incorrecta', '#ff8a7a');
+}
 /** Se llama al pulsar JUGAR: conecta, o cambia de servidor/sala si el jugador los cambió en el menú. */
 function goOnline() {
   roomCode = cleanRoomCode($('room').value);
   store.set('robottag.room', roomCode);
   store.set('robottag.server', $('server').value.trim());
+  store.set('robottag.key', ownerKey());
+  if (ws && ws.readyState === 1 && ownerKey() !== sentKey) { sentKey = ownerKey(); ws.send(JSON.stringify({ t: 'profile', ...publicInfo(), key: sentKey })); }
   wantOnline = true;
   const url = targetUrl();
   if (ws && url !== serverUrl) { const old = ws; ws = null; old.close(); voice.closeAll(); for (const r of remotes.values()) removeRobot(r.rb); remotes.clear(); connect(); }
@@ -730,7 +751,8 @@ document.getElementById('play').onclick = start;
 document.getElementById('name').value = profile.name || '';
 $('room').value = cleanRoomCode(qs.get('room') || store.get('robottag.room'));
 $('server').value = qs.get('server') || store.get('robottag.server');
-if ($('server').value) $('adv').open = true;
+$('ownerkey').value = store.get('robottag.key');
+if ($('server').value || $('ownerkey').value) $('adv').open = true;
 $('ver').textContent = 'Robot Tag v' + VERSION;
 document.getElementById('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
 $('voice').checked = store.get('robottag.voice') !== '0';

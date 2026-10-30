@@ -1,7 +1,7 @@
 // La computadora del lobby: una pantalla con páginas (inicio, nombre, color, cosméticos, cursos).
 // Solo lógica y dibujo en un canvas 2D; quien la use decide cómo se pulsa (mouse, dedo o manos en VR).
 // Sin DOM: se prueba en Node (test/computer.test.mjs).
-import { CATALOG, PALETTE, NAME_MAX } from './cosmetics.js';
+import { visibleCatalog, PALETTE, NAME_MAX } from './cosmetics.js';
 
 export const SCREEN = { W: 1024, H: 597 };
 
@@ -103,7 +103,7 @@ export class Computer {
         break;
       }
       case 'cosmetics': {
-        CATALOG.slice(0, 6).forEach((it, i) => {
+        visibleCatalog(P).slice(0, 6).forEach((it, i) => {
           const owned = P.owned.has(it.id), worn = P.isEquipped(it.id);
           add({
             id: 'item-' + it.id, x: 52 + (i % 2) * 480, y: 110 + Math.floor(i / 2) * 110, w: 440, h: 96,

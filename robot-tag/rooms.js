@@ -3,7 +3,11 @@
 // Sin red: recibe una función send(player, texto), así se prueba en Node (test/rooms.test.mjs).
 
 const COLORS = [0x3da5ff, 0x45e08a, 0xffd23d, 0xc16bff, 0xff7fb0, 0x5ff0e0, 0xffffff, 0x9aa7ff];
-const COS_SLOTS = ['head', 'badge'];
+const crypto = require('crypto');
+
+const COS_SLOTS = ['head', 'badge', 'hand']; // deben coincidir con SLOTS de public/cosmetics.js
+// Cosméticos que solo puede llevar el dueño (quien mandó la clave correcta). Debe coincidir con `ownerOnly` de public/cosmetics.js.
+const OWNER_ONLY = new Set(['owner_badge']);
 const COS_ID = /^[a-z0-9_]{1,20}$/;
 const CODE_RE = /^[A-Z0-9]{1,8}$/;
 
@@ -20,14 +24,19 @@ function applyProfile(player, m) {
   if (typeof m.voice === 'boolean') player.voice = m.voice; // ¿participa en el chat de voz?
   if (m.cos && typeof m.cos === 'object') {
     const cos = {};
-    for (const slot of COS_SLOTS) if (typeof m.cos[slot] === 'string' && COS_ID.test(m.cos[slot])) cos[slot] = m.cos[slot];
+    for (const slot of COS_SLOTS) {
+      const id = m.cos[slot];
+      if (typeof id === 'string' && COS_ID.test(id) && (player.owner || !OWNER_ONLY.has(id))) cos[slot] = id; // lo de dueño solo si es dueño
+    }
     player.cos = cos;
   }
 }
 
 class Rooms {
-  constructor({ mapIds, send, maxPublic = 10, maxPrivate = 16, tagDistance = 0.95, immunityMs = 3000, defaultMap = 'lobby' }) {
+  constructor({ mapIds, send, ownerKey = '', maxPublic = 10, maxPrivate = 16, tagDistance = 0.95, immunityMs = 3000, defaultMap = 'lobby' }) {
     this.mapIds = new Set(mapIds);
+    // Clave de dueño (variable de entorno OWNER_KEY). Vacía = no hay dueño y nadie puede llevar la insignia.
+    this.ownerHash = ownerKey ? crypto.createHash('sha256').update(String(ownerKey)).digest() : null;
     this.send = send;
     this.maxPublic = maxPublic;
     this.maxPrivate = maxPrivate;
@@ -40,7 +49,7 @@ class Rooms {
 
   newPlayer(ws) {
     const id = this.nextId++;
-    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
+    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, owner: false, keyFails: 0, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
   }
 
   /** Mete al jugador en una sala. map inválido -> mapa por defecto; código inválido -> sala pública. */
@@ -96,9 +105,41 @@ class Rooms {
     room.cooldownUntil = Date.now() + this.immunityMs;
   }
 
+  /**
+   * Comprueba la clave de dueño. Solo el servidor decide: el cliente no puede declararse dueño.
+   * Responde {t:'owner', ok}. Tras 5 claves malas en una conexión se deja de comprobar.
+   */
+  checkOwner(player, key) {
+    if (key === '') { // sin clave: no es dueño
+      if (player.owner) { player.owner = false; this.stripOwnerItems(player); }
+      return;
+    }
+    if (!this.ownerHash || player.keyFails >= 5 || key.length > 100) {
+      if (this.ownerHash && player.keyFails < 5) player.keyFails++;
+      this.send(player, JSON.stringify({ t: 'owner', ok: false }));
+      return;
+    }
+    const good = crypto.timingSafeEqual(crypto.createHash('sha256').update(key).digest(), this.ownerHash);
+    if (good === player.owner) { if (good) return; }
+    if (good) {
+      player.owner = true;
+      this.send(player, JSON.stringify({ t: 'owner', ok: true }));
+    } else {
+      player.keyFails++;
+      player.owner = false;
+      this.stripOwnerItems(player);
+      this.send(player, JSON.stringify({ t: 'owner', ok: false }));
+    }
+  }
+
+  stripOwnerItems(player) {
+    for (const slot of Object.keys(player.cos)) if (OWNER_ONLY.has(player.cos[slot])) delete player.cos[slot];
+  }
+
   /** Procesa un mensaje ya convertido a objeto. */
   handle(player, m) {
     if (!m || typeof m !== 'object') return;
+    if ((m.t === 'join' || m.t === 'profile') && typeof m.key === 'string') this.checkOwner(player, m.key);
     if (m.t === 'join') {
       applyProfile(player, m);
       this.join(player, m.map, m.code);
@@ -176,4 +217,4 @@ class Rooms {
   }
 }
 
-module.exports = { Rooms, applyProfile, COS_SLOTS };
+module.exports = { Rooms, applyProfile, COS_SLOTS, OWNER_ONLY };

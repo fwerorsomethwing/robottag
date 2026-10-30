@@ -23,6 +23,7 @@ let rooms;
 const ready = import('./public/maps.js').then((m) => {
   rooms = new Rooms({
     mapIds: m.MAP_IDS,
+    ownerKey: process.env.OWNER_KEY || '',
     defaultMap: m.LOBBY,
     send: (p, s) => { if (p.ws.readyState === 1) p.ws.send(s); },
   });
