@@ -10,6 +10,8 @@ const COS_SLOTS = ['head', 'badge', 'hand']; // deben coincidir con SLOTS de pub
 const OWNER_ONLY = new Set(['owner_badge']);
 // Herramientas de admin que lleva el dueño en la mano (Kick Gun y NaN Gun). Solo el dueño puede tenerlas.
 const ADMIN_TOOLS = new Set(['kick', 'nan']);
+// Modelos de cuerpo permitidos. Deben coincidir con MODELS de public/cosmetics.js.
+const MODELS = new Set(['sketch', 'kyle']);
 const NAN_MS = 8000;      // cuánto dura el efecto NaN
 const NOTICE_MAX = 80;
 const COS_ID = /^[a-z0-9_]{1,20}$/;
@@ -25,6 +27,7 @@ function applyProfile(player, m) {
     if (n) player.name = n;
   }
   if (Number.isInteger(m.color) && m.color >= 0 && m.color <= 0xffffff) player.c = m.color;
+  if (typeof m.model === 'string' && MODELS.has(m.model)) player.model = m.model;
   if (typeof m.voice === 'boolean') player.voice = m.voice; // ¿participa en el chat de voz?
   if (typeof m.tool === 'string') player.tool = player.owner && ADMIN_TOOLS.has(m.tool) ? m.tool : ''; // solo el dueño lleva armas
   if (m.cos && typeof m.cos === 'object') {
@@ -55,7 +58,7 @@ class Rooms {
 
   newPlayer(ws) {
     const id = this.nextId++;
-    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, owner: false, keyFails: 0, tool: '', nanUntil: 0, adminWin: 0, adminN: 0, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
+    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, model: 'sketch', owner: false, keyFails: 0, tool: '', nanUntil: 0, adminWin: 0, adminN: 0, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
   }
 
   /** Mete al jugador en una sala. map inválido -> mapa por defecto; código inválido -> sala pública. */
@@ -274,7 +277,7 @@ class Rooms {
       }
       const list = [...room.players.values()]
         .filter((p) => p.p)
-        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos, v: p.voice ? 1 : 0, g: p.tool, n: p.nanUntil > now ? 1 : 0 }));
+        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos, v: p.voice ? 1 : 0, md: p.model, g: p.tool, n: p.nanUntil > now ? 1 : 0 }));
       const msg = JSON.stringify({ t: 'snap', players: list, it: room.itId, map: room.map });
       for (const p of room.players.values()) this.send(p, msg);
     }

@@ -56,6 +56,7 @@
     <p>Estilo Gorilla Tag 2020 · multijugador en línea</p>
     <input id="name" maxlength="12" placeholder="Tu nombre" value="">
     <label class="chk">Mapa: <select id="startmap" style="flex:1;padding:6px;border-radius:6px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:14px"></select></label>
+    <label class="chk">Modelo: <select id="model" style="flex:1;padding:6px;border-radius:6px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:14px"></select></label>
     <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
     <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
     <details id="adv"><summary>Servidor y dueño (avanzado)</summary>
@@ -93,7 +94,7 @@
 import * as THREE from 'three';
 import { VRLocomotion, rayBox, raySphere } from './locomotion.js';
 import { COURSES, CourseTracker, courseSteps } from './courses.js';
-import { Profile, buildCosmetic, SLOTS } from './cosmetics.js';
+import { Profile, buildCosmetic, SLOTS, MODELS } from './cosmetics.js';
 import { Computer, SCREEN } from './computer.js';
 import { MAP_INFO, LOBBY, buildMap, mapInfo, portalAt } from './maps.js';
 import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, shopPurchase, coinsLabel, needsConfirm } from './shop.js';
@@ -256,7 +257,8 @@ function cast(o, d, maxT) {
 const loco = new VRLocomotion({ boxes, spheres });
 
 // ---------- Robots ----------
-function makeRobot(color, isLocal) {
+function makeRobot(color, isLocal, model = 'sketch') {
+  if (model === 'kyle') return makeRobotKyle(color, isLocal);
   const g = new THREE.Group();
   // Diseño del boceto: cabeza redonda con dos ojos y boca, torso ovalado y dos brazos grandes ovalados.
   const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.45 });
@@ -284,7 +286,39 @@ function makeRobot(color, isLocal) {
   scene.add(g, handL, handR, armL, armR);
   if (isLocal) { headParts.forEach((m) => (m.visible = false)); cos.visible = false; }
   // en primera persona los brazos son más finos para no tapar la vista
-  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.045 : 0.115 };
+  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.045 : 0.115, model: 'sketch' };
+}
+/** Modelo "Kyle": robot de cajas con visor, al estilo de los primeros Gorilla Tag (diseño propio, no es el asset de Unity). */
+function makeRobotKyle(color, isLocal) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.5 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x14171f, roughness: 0.35, metalness: 0.3 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x9aa3b5, roughness: 0.35, metalness: 0.8 });
+  const glow = new THREE.MeshStandardMaterial({ color: 0x38e8ff, emissive: 0x38e8ff, emissiveIntensity: 1.2, roughness: 0.3 });
+  const box = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
+  const head = box(0.33, 0.30, 0.30, mat, 0, 0, 0);
+  const visor = box(0.27, 0.13, 0.02, dark, 0, 0.02, -0.152);
+  const eyeL = box(0.07, 0.04, 0.012, glow, -0.065, 0.025, -0.165), eyeR = box(0.07, 0.04, 0.012, glow, 0.065, 0.025, -0.165);
+  const topStrip = box(0.34, 0.03, 0.12, steel, 0, 0.165, 0);
+  const neck = box(0.12, 0.08, 0.1, steel, 0, -0.185, 0);
+  const torso = box(0.34, 0.40, 0.20, mat, 0, -0.42, 0);
+  const chest = box(0.06, 0.06, 0.012, glow, 0.08, -0.30, -0.101);
+  const belly = box(0.26, 0.10, 0.17, steel, 0, -0.66, 0);
+  const shGeo = new THREE.SphereGeometry(0.075, 14, 10);
+  const shL = new THREE.Mesh(shGeo, dark), shR = new THREE.Mesh(shGeo, dark);
+  shL.position.set(-0.27, -0.26, 0); shR.position.set(0.27, -0.26, 0);
+  const fistGeo = new THREE.BoxGeometry(0.15, 0.13, 0.17);
+  const handL = new THREE.Mesh(fistGeo, steel), handR = new THREE.Mesh(fistGeo, steel);
+  const armGeo = new THREE.CylinderGeometry(1, 1, 2, 14);
+  const armL = new THREE.Mesh(armGeo, dark), armR = new THREE.Mesh(armGeo, dark);
+  armL.scale.setScalar(0.001); armR.scale.setScalar(0.001);
+  const headParts = [head, visor, eyeL, eyeR, topStrip, neck, torso, chest, belly, shL, shR];
+  headParts.forEach((m) => g.add(m));
+  const cos = new THREE.Group();
+  g.add(cos);
+  scene.add(g, handL, handR, armL, armR);
+  if (isLocal) { headParts.forEach((m) => (m.visible = false)); cos.visible = false; }
+  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.035 : 0.055, model: 'kyle' };
 }
 function applyCosmetics(rb, equipped) {
   const key = SLOTS.map((s) => (equipped && equipped[s]) || '').join('|');
@@ -322,6 +356,7 @@ function updateRobot(rb, head, yaw, lw, rw) {
   const shL = head.clone().addScaledVector(right, -0.27).add(new V3(0, -0.26, 0));
   const shR = head.clone().addScaledVector(right, 0.27).add(new V3(0, -0.26, 0));
   rb.handL.position.copy(lw); rb.handR.position.copy(rw);
+  rb.handL.rotation.y = yaw;
   rb.handR.rotation.y = yaw; // el palo apunta hacia donde mira el robot
   placeArm(rb.armL, shL, lw, rb.armThick); placeArm(rb.armR, shR, rw, rb.armThick);
 }
@@ -350,7 +385,7 @@ function nameSprite(text) {
 const pos = SPAWN.clone(), vel = new V3();
 let yaw = 0, pitch = 0, time = 0;
 const up = new V3(0, 1, 0);
-const local = makeRobot(profile.color, true);
+let local = makeRobot(profile.color, true, profile.model);
 const hands = [-1, 1].map((side) => ({ side, down: false, pressed: false, hit: null, pos: new V3(), origin: new V3(), dir: new V3() }));
 const head = new V3();
 
@@ -386,11 +421,23 @@ function refreshScreen() {
 }
 
 // El maniquí muestra tu robot tal como lo ven los demás.
-const mannequin = makeRobot(profile.color, false);
-applyCosmetics(mannequin, profile.equipped);
-{
+let mannequin;
+function setupMannequin() {
+  mannequin = makeRobot(profile.color, false, profile.model);
+  applyCosmetics(mannequin, profile.equipped);
   const mh = new V3(-2.6, 1.15, 3.1);
   updateRobot(mannequin, mh, Math.PI, mh.clone().add(new V3(-0.34, -0.62, 0.02)), mh.clone().add(new V3(0.34, -0.62, 0.02)));
+}
+setupMannequin();
+/** Cambia el modelo del robot propio y del maniquí (se llama al elegir otro en el menú o en la computadora). */
+function rebuildOwnRobots() {
+  const wasTagged = local.tagged, wasVisible = mannequin.g.visible;
+  removeRobot(local); removeRobot(mannequin);
+  local = makeRobot(profile.color, true, profile.model);
+  applyCosmetics(local, profile.equipped); applyTool(local, curTool);
+  if (wasTagged) setTagged(local, true);
+  setupMannequin();
+  setMannequinVisible(wasVisible);
 }
 
 function setMannequinVisible(v) {
@@ -401,6 +448,7 @@ function onProfileChanged(kind) {
   if (kind === 'color') {
     for (const rb of [local, mannequin]) { rb.color = profile.color; if (!rb.tagged) rb.mat.color.setHex(profile.color); }
   }
+  if (kind === 'model') { rebuildOwnRobots(); $('model').value = profile.model; }
   if (kind === 'cos') applyCosmetics(mannequin, profile.equipped);
   if (kind === 'name') document.getElementById('name').value = profile.name;
   refreshShop();
@@ -742,10 +790,15 @@ function onSnap(m) {
     seen.add(p.id);
     let r = remotes.get(p.id);
     if (!r) {
-      const rb = makeRobot(p.c, false);
+      const rb = makeRobot(p.c, false, p.md || 'sketch');
       const tag = nameSprite(p.name); rb.g.add(tag);
       r = { rb, name: p.name, head: new V3(...p.p), yaw: p.yaw, l: new V3(...(p.l || p.p)), r: new V3(...(p.r || p.p)), tp: null };
       remotes.set(p.id, r);
+    }
+    if ((p.md || 'sketch') !== r.rb.model) {
+      const old = r.rb; removeRobot(old);
+      const rb = makeRobot(p.c, false, p.md || 'sketch');
+      rb.g.add(nameSprite(p.name)); r.rb = rb;
     }
     if (p.c !== r.rb.color) { r.rb.color = p.c; if (!r.rb.tagged) r.rb.mat.color.setHex(p.c); }
     applyCosmetics(r.rb, p.cos);
@@ -956,6 +1009,12 @@ for (const mi of MAP_INFO) {
   const o = document.createElement('option');
   o.value = mi.id; o.textContent = mi.id === LOBBY ? 'Plaza (el mapa normal)' : mi.name.charAt(0) + mi.name.slice(1).toLowerCase() + (mi.hidden ? ' (pruebas)' : '');
   startSel.appendChild(o);
+}
+{
+  const ms = $('model');
+  for (const m of MODELS) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; ms.appendChild(o); }
+  ms.value = profile.model;
+  ms.addEventListener('change', () => { profile.setModel(ms.value); onProfileChanged('model'); });
 }
 startSel.value = MAP_INFO.some((mi) => mi.id === (startMapParam || store.get('robottag.startmap'))) ? (startMapParam || store.get('robottag.startmap')) : LOBBY;
 /** Lleva al jugador al mapa elegido en el menú (si no está ya en él). */

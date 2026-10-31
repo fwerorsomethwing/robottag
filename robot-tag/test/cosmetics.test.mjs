@@ -91,7 +91,7 @@ const memory = () => {
 {
   const p = new Profile(memory());
   p.setName('Ana'); p.setColor(0x45e08a); p.addCoins(50); p.buy('headphones');
-  assert.deepEqual(p.publicInfo(), { name: 'Ana', color: 0x45e08a, cos: { head: 'headphones', badge: 'early_badge' } });
+  assert.deepEqual(p.publicInfo(), { name: 'Ana', color: 0x45e08a, model: 'sketch', cos: { head: 'headphones', badge: 'early_badge' } });
   p.publicInfo().cos.head = 'x';
   assert.equal(p.equipped.head, 'headphones', 'publicInfo devuelve una copia');
   ok('publicInfo para el servidor');

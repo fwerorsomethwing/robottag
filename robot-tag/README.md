@@ -168,3 +168,7 @@ public/admin.js         panel de admin, Kick Gun y NaN Gun
 ice.js                 servidores STUN/TURN para la voz
 test/                   pruebas
 ```
+
+## Modelo Kyle (1.0.2.4)
+Nuevo cuerpo de robot "Kyle (clásico 2020)": robot de cajas con visor, como en los primeros Gorilla Tag. Es un diseño propio inspirado en ese estilo (no incluye el asset original de Unity).
+Elígelo en el menú ("Modelo") o en la computadora → MODELO. Los demás jugadores te ven con ese modelo. El servidor solo acepta modelos conocidos (`MODELS` en `rooms.js`).

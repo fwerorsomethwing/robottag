@@ -19,6 +19,12 @@ export const SHOP_CATALOG = CATALOG.filter((c) => !c.ownerOnly);
 /** Cosméticos que ve un jugador en su computadora: los comprables y, si es dueño, los de dueño. */
 export const visibleCatalog = (profile) => CATALOG.filter((c) => !c.ownerOnly || profile.owner);
 
+/** Modelos de cuerpo del robot. 'sketch' = el del boceto; 'kyle' = el robot de cajas del Gorilla Tag de 2020. Deben coincidir con MODELS de rooms.js. */
+export const MODELS = [
+  { id: 'sketch', name: 'Robot del boceto', desc: 'Cabeza redonda, torso ovalado y brazos grandes' },
+  { id: 'kyle', name: 'Kyle (clásico 2020)', desc: 'Robot de cajas con visor, como en el Gorilla Tag de 2020' },
+];
+
 export const PALETTE = [
   0x3da5ff, 0x45e08a, 0xffd23d, 0xc16bff, 0xff7fb0, 0x5ff0e0,
   0xffffff, 0x9aa7ff, 0xa0e84a, 0xb0b8c8, 0x7a5cff, 0x2dd4bf,
@@ -161,6 +167,7 @@ export class Profile {
     this.name = '';
     this.color = randomColor();
     this.coins = 0;
+    this.model = 'sketch';
     this.owner = false;      // ¿el servidor confirmó que eres el dueño? (solo durante la sesión)
     this.ownerSeen = false;  // ¿ya se te dio la insignia de dueño alguna vez? (la primera vez se pone sola)
     this.ownerPref = false;  // ¿la llevabas puesta la última vez?
@@ -182,6 +189,7 @@ export class Profile {
     if (typeof d.name === 'string') this.name = d.name.slice(0, NAME_MAX);
     if (Number.isInteger(d.color) && d.color >= 0 && d.color <= 0xffffff) this.color = d.color;
     if (Number.isFinite(d.coins) && d.coins >= 0) this.coins = Math.floor(d.coins);
+    if (MODELS.some((m) => m.id === d.model)) this.model = d.model;
     if (Array.isArray(d.owned)) for (const id of d.owned) if (byId.has(id) && !byId.get(id).ownerOnly) this.owned.add(id); // lo de dueño no se guarda: lo da el servidor
     this.ownerSeen = d.ownerSeen === true;
     this.ownerPref = !!(d.equipped && typeof d.equipped === 'object' && d.equipped.badge === 'owner_badge');
@@ -205,6 +213,7 @@ export class Profile {
         name: this.name,
         color: this.color,
         coins: this.coins,
+        model: this.model,
         owned: [...this.owned].filter((id) => !byId.get(id).ownerOnly),
         equipped,
         ownerSeen: this.ownerSeen,
@@ -215,11 +224,16 @@ export class Profile {
 
   /** Lo que ven los demás jugadores (se manda al servidor). */
   publicInfo() {
-    return { name: this.name, color: this.color, cos: { ...this.equipped } };
+    return { name: this.name, color: this.color, model: this.model, cos: { ...this.equipped } };
   }
 
   setName(name) {
     this.name = String(name || '').slice(0, NAME_MAX);
+    this.save();
+  }
+
+  setModel(id) {
+    if (MODELS.some((m) => m.id === id)) this.model = id;
     this.save();
   }
 
