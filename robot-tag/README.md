@@ -79,6 +79,20 @@ El juego solo es "en línea" cuando el servidor está en internet. En tu PC es l
   - Sin `OWNER_KEY` en el servidor, nadie puede ser dueño. Tras 5 claves incorrectas en una conexión se deja de comprobar.
   - Para que otro sea dueño también, dale la clave. Para quitarla, cambia `OWNER_KEY` en Render.
 
+## Panel de admin, Kick Gun y NaN Gun (1.0.2.3)
+
+Solo para el dueño (quien puso la clave de `OWNER_KEY`, ver arriba). El **servidor** vuelve a comprobar cada acción: un jugador normal no puede usarlas aunque modifique su navegador, y nadie puede usarlas contra el dueño ni en otra sala.
+
+- **Abrir el panel**: botón de **agarre (grip) de cualquier mando** en VR, tecla **P** en PC, botón ⚙ en el móvil. Aparece delante de ti. En PC apuntas con la mira y haces clic; en el móvil tocas; en VR lo tocas con la mano.
+- **En el panel**: elegir arma (*Sin arma*, *Kick Gun*, *NaN Gun*), y por cada jugador **EXPULSAR**, **NaN** y **LAVA**. Abajo: **RONDA NUEVA** (sortea otra LAVA), **QUITAR NaN A TODOS** y **MAPA DE PRUEBAS**.
+- **Kick Gun** (roja): apunta a un jugador y dispara con **F** (móvil: botón 🔫; VR: **gatillo**). Lo expulsa y no puede volver a entrar durante 2 minutos (cambia el tiempo con la variable `KICK_BAN_SECONDS` en Render; la prohibición es por IP y se borra al reiniciar el servidor).
+- **NaN Gun** (verde): el jugador acertado se queda **congelado y "glitcheado" 8 segundos** (su pantalla parpadea y los demás lo ven parpadear). Es solo un efecto del juego: no manda valores NaN ni nada que pueda estropear el navegador de nadie. De hecho el servidor descarta cualquier posición no numérica.
+- Las armas aparecen en la mano derecha del dueño y todos las ven. Los disparos no atraviesan paredes. En VR el disparo sale de la dirección del mando.
+
+## Mapa de pruebas
+
+Un mapa con escaleras, columnas de varias alturas, huecos de 1 a 5 m, un pasillo de paredes, esferas de varios tamaños y una barra baja, para probar las físicas. **Cualquiera** lo elige en el menú, en **Mapa** (también aparecen la Plaza y los demás). Es una sala más (con salas públicas y códigos privados). El dueño también puede ir y volver desde el panel de admin. No tiene portal en la Plaza.
+
 ## Chat de voz (1.0.2.1)
 
 Hablas con los jugadores de tu sala y suena en 3D desde su robot: más bajo cuanto más lejos está (se oye hasta ~35 m).
@@ -150,6 +164,7 @@ public/maps.js          los mapas (Plaza, Bosque, Cueva, Cañón, Ciudad)
 public/shop.js          tienda física
 public/net.js           dirección del servidor y reconexión
 public/voice.js         chat de voz (WebRTC + audio 3D)
+public/admin.js         panel de admin, Kick Gun y NaN Gun
 ice.js                 servidores STUN/TURN para la voz
 test/                   pruebas
 ```

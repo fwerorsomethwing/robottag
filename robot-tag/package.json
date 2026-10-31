@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "https": "node server.js --https",
-    "test": "node test/locomotion.test.mjs && node test/courses.test.mjs && node test/cosmetics.test.mjs && node test/computer.test.mjs && node test/maps.test.mjs && node test/shop.test.mjs && node test/net.test.mjs && node test/rooms.test.mjs && node test/voice.test.mjs && node test/voice-rooms.test.mjs && node test/owner.test.mjs"
+    "test": "node test/locomotion.test.mjs && node test/courses.test.mjs && node test/cosmetics.test.mjs && node test/computer.test.mjs && node test/maps.test.mjs && node test/shop.test.mjs && node test/net.test.mjs && node test/rooms.test.mjs && node test/voice.test.mjs && node test/voice-rooms.test.mjs && node test/owner.test.mjs && node test/admin.test.mjs"
   },
   "dependencies": {
     "selfsigned": "^2.4.1",

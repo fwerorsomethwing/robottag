@@ -8,6 +8,10 @@ const crypto = require('crypto');
 const COS_SLOTS = ['head', 'badge', 'hand']; // deben coincidir con SLOTS de public/cosmetics.js
 // Cosméticos que solo puede llevar el dueño (quien mandó la clave correcta). Debe coincidir con `ownerOnly` de public/cosmetics.js.
 const OWNER_ONLY = new Set(['owner_badge']);
+// Herramientas de admin que lleva el dueño en la mano (Kick Gun y NaN Gun). Solo el dueño puede tenerlas.
+const ADMIN_TOOLS = new Set(['kick', 'nan']);
+const NAN_MS = 8000;      // cuánto dura el efecto NaN
+const NOTICE_MAX = 80;
 const COS_ID = /^[a-z0-9_]{1,20}$/;
 const CODE_RE = /^[A-Z0-9]{1,8}$/;
 
@@ -22,6 +26,7 @@ function applyProfile(player, m) {
   }
   if (Number.isInteger(m.color) && m.color >= 0 && m.color <= 0xffffff) player.c = m.color;
   if (typeof m.voice === 'boolean') player.voice = m.voice; // ¿participa en el chat de voz?
+  if (typeof m.tool === 'string') player.tool = player.owner && ADMIN_TOOLS.has(m.tool) ? m.tool : ''; // solo el dueño lleva armas
   if (m.cos && typeof m.cos === 'object') {
     const cos = {};
     for (const slot of COS_SLOTS) {
@@ -33,11 +38,12 @@ function applyProfile(player, m) {
 }
 
 class Rooms {
-  constructor({ mapIds, send, ownerKey = '', maxPublic = 10, maxPrivate = 16, tagDistance = 0.95, immunityMs = 3000, defaultMap = 'lobby' }) {
+  constructor({ mapIds, send, kick = () => {}, ownerKey = '', maxPublic = 10, maxPrivate = 16, tagDistance = 0.95, immunityMs = 3000, defaultMap = 'lobby' }) {
     this.mapIds = new Set(mapIds);
     // Clave de dueño (variable de entorno OWNER_KEY). Vacía = no hay dueño y nadie puede llevar la insignia.
     this.ownerHash = ownerKey ? crypto.createHash('sha256').update(String(ownerKey)).digest() : null;
     this.send = send;
+    this.kick = kick; // (jugador) => cierra su conexión y lo bloquea un rato (lo pone server.js)
     this.maxPublic = maxPublic;
     this.maxPrivate = maxPrivate;
     this.tagDistance = tagDistance;
@@ -49,7 +55,7 @@ class Rooms {
 
   newPlayer(ws) {
     const id = this.nextId++;
-    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, owner: false, keyFails: 0, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
+    return { id, ws, name: 'Robot' + id, c: COLORS[id % COLORS.length], cos: {}, owner: false, keyFails: 0, tool: '', nanUntil: 0, adminWin: 0, adminN: 0, voice: false, rtcWin: 0, rtcN: 0, p: null, yaw: 0, l: null, r: null, room: null };
   }
 
   /** Mete al jugador en una sala. map inválido -> mapa por defecto; código inválido -> sala pública. */
@@ -133,6 +139,7 @@ class Rooms {
   }
 
   stripOwnerItems(player) {
+    player.tool = '';
     for (const slot of Object.keys(player.cos)) if (OWNER_ONLY.has(player.cos[slot])) delete player.cos[slot];
   }
 
@@ -147,6 +154,8 @@ class Rooms {
       this.join(player, m.map, m.code);
     } else if (m.t === 'profile') {
       applyProfile(player, m);
+    } else if (m.t === 'admin') {
+      this.admin(player, m);
     } else if (m.t === 'rtc') {
       this.relay(player, m);
     } else if (m.t === 's') {
@@ -188,6 +197,67 @@ class Rooms {
     if (out) this.send(target, JSON.stringify({ t: 'rtc', from: player.id, d: out }));
   }
 
+  /**
+   * Acciones del dueño sobre su sala. El servidor las comprueba todas: solo vale si el que las manda es el dueño
+   * confirmado y el objetivo está en su misma sala. Nadie puede usarlas contra el dueño ni contra sí mismo.
+   *   kick       expulsa (el servidor lo desconecta y lo bloquea un rato)
+   *   nan        efecto NaN: el objetivo se queda congelado y "glitcheado" 8 s (no manda valores NaN a nadie)
+   *   unnan      quita el efecto (a uno, o a todos si no se indica objetivo)
+   *   lava       convierte al objetivo en LAVA
+   *   newround   sortea una nueva LAVA
+   *   announce   mensaje a toda la sala
+   */
+  admin(player, m, now = Date.now()) {
+    const room = player.room;
+    if (!player.owner || !room) return;
+    if (now - player.adminWin > 1000) { player.adminWin = now; player.adminN = 0; }
+    if (++player.adminN > 10) return; // como mucho 10 acciones por segundo
+    const target = Number.isInteger(m.to) ? room.players.get(m.to) : null;
+    const hit = target && target !== player && !target.owner ? target : null;
+    const zap = (tool) => {
+      const msg = JSON.stringify({ t: 'zap', from: player.id, to: hit.id, tool });
+      for (const p of room.players.values()) this.send(p, msg);
+    };
+    switch (m.act) {
+      case 'kick':
+        if (!hit) return;
+        zap('kick');
+        this.send(hit, JSON.stringify({ t: 'kicked', by: player.name }));
+        this.leave(hit);
+        this.kick(hit);
+        break;
+      case 'nan':
+        if (!hit) return;
+        hit.nanUntil = now + NAN_MS;
+        zap('nan');
+        this.send(hit, JSON.stringify({ t: 'nan', ms: NAN_MS }));
+        break;
+      case 'unnan': {
+        const list = hit ? [hit] : m.to === undefined || m.to === null ? [...room.players.values()] : [];
+        for (const p of list) {
+          if (p.nanUntil > now) { p.nanUntil = 0; this.send(p, JSON.stringify({ t: 'nan', ms: 0 })); }
+        }
+        break;
+      }
+      case 'lava':
+        if (!hit) return;
+        room.itId = hit.id;
+        room.cooldownUntil = now + this.immunityMs;
+        break;
+      case 'newround':
+        this.pickIt(room);
+        break;
+      case 'announce': {
+        const text = String(m.text || '').replace(/[^\w ¡!¿?.,:\-áéíóúñÁÉÍÓÚÑ]/g, '').trim().slice(0, NOTICE_MAX);
+        if (!text) return;
+        const msg = JSON.stringify({ t: 'notice', text: text });
+        for (const p of room.players.values()) this.send(p, msg);
+        break;
+      }
+      default:
+    }
+  }
+
   /** Un paso del servidor (cada 50 ms): contagio de LAVA y envío de "snap" a cada sala. */
   tick(now = Date.now()) {
     for (const room of this.rooms.values()) {
@@ -204,7 +274,7 @@ class Rooms {
       }
       const list = [...room.players.values()]
         .filter((p) => p.p)
-        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos, v: p.voice ? 1 : 0 }));
+        .map((p) => ({ id: p.id, name: p.name, p: p.p, yaw: p.yaw, l: p.l, r: p.r, c: p.c, cos: p.cos, v: p.voice ? 1 : 0, g: p.tool, n: p.nanUntil > now ? 1 : 0 }));
       const msg = JSON.stringify({ t: 'snap', players: list, it: room.itId, map: room.map });
       for (const p of room.players.values()) this.send(p, msg);
     }
@@ -217,4 +287,4 @@ class Rooms {
   }
 }
 
-module.exports = { Rooms, applyProfile, COS_SLOTS, OWNER_ONLY };
+module.exports = { Rooms, applyProfile, COS_SLOTS, OWNER_ONLY, ADMIN_TOOLS, NAN_MS };

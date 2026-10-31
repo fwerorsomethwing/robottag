@@ -6,9 +6,10 @@ import { SHOP_RECT } from '../public/shop.js';
 let n = 0;
 const ok = (name) => console.log('  ok', ++n, name);
 
-// 1) Los cinco mapas existen y son siempre idénticos (todos los jugadores ven lo mismo).
+// 1) Los mapas existen y son siempre idénticos (todos los jugadores ven lo mismo).
 {
-  assert.deepEqual(MAP_IDS, ['lobby', 'forest', 'cave', 'canyon', 'city']);
+  assert.deepEqual(MAP_IDS, ['lobby', 'forest', 'cave', 'canyon', 'city', 'test']);
+  assert.deepEqual(MAP_INFO.filter((m) => m.hidden).map((m) => m.id), ['test'], 'el mapa de pruebas no sale en los portales');
   for (const id of MAP_IDS) {
     const a = buildMap(id), b = buildMap(id);
     assert.equal(JSON.stringify(a), JSON.stringify(b), id + ': el mapa cambia entre generaciones');
@@ -16,7 +17,7 @@ const ok = (name) => console.log('  ok', ++n, name);
     assert.equal(a.id, id);
   }
   assert.throws(() => buildMap('nada'));
-  ok('5 mapas deterministas (Plaza, Bosque, Cueva, Cañón, Ciudad)');
+  ok('6 mapas deterministas (Plaza, Bosque, Cueva, Cañón, Ciudad, Pruebas)');
 }
 
 // 2) Los mapas nuevos son de verdad distintos y tienen contenido propio.
@@ -31,7 +32,7 @@ const ok = (name) => console.log('  ok', ++n, name);
   assert.ok(buildMap('cave').boxes.some((b) => b.y > 11.5), 'techo de la cueva');
   assert.ok(buildMap('cave').light.sun === 0, 'la cueva es oscura');
   const skies = new Set(MAP_IDS.map((id) => buildMap(id).sky));
-  assert.equal(skies.size, 5, 'cada mapa tiene su propio cielo');
+  assert.equal(skies.size, MAP_IDS.length, 'cada mapa tiene su propio cielo');
   ok('cada mapa tiene su contenido y ambiente');
 }
 
