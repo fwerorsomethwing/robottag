@@ -182,3 +182,11 @@ Sube hasta 8 sonidos propios (mp3, wav u ogg · máx. 3 MB y 20 s) desde el men�
 - En el juego: teclas **1–8** para sonar y **0** para detenerlos. En móvil, botón 🔊. En VR y PC, también desde la computadora → SONIDOS.
 - Los demás jugadores los oyen por el chat de voz (se mezclan con tu micrófono), así que hace falta tener el chat de voz activado. Sin él, solo lo oyes tú.
 - Se pueden sonar hasta 4 a la vez. Silenciar el micrófono no corta el soundboard.
+
+## Texturas (1.0.2.9)
+Los mapas y el robot Kyle usan texturas procedurales (césped, ladrillo, madera, roca de cañón, piedra y metal), dibujadas con un canvas al cargar: no hay imágenes que descargar. La textura de cada objeto se elige según su color y conserva la paleta de cada mapa.
+Se pueden apagar en el menú ("Texturas") si el juego va lento en un móvil o en VR; se aplica al momento y se recuerda.
+
+## Fotos para las texturas (1.0.2.10)
+En el menú, **Fotos para las texturas**: sube tus propias fotos para reemplazar césped, ladrillo, madera, roca, piedra o metal (también el metal de Kyle). Se recortan en cuadrado, se reducen a 256 px y se guardan solo en tu navegador (localStorage); no se suben al servidor. ✕ vuelve a la textura dibujada. Cada jugador ve el juego con sus propias fotos. Si la casilla "Texturas" está apagada, no se usan.
+Consejo: las fotos "seamless" (sin costuras) se ven mejor al repetirse.

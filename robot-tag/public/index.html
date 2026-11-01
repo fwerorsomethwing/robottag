@@ -66,6 +66,7 @@
     <p>Estilo Gorilla Tag 2020 · multijugador en línea</p>
     <input id="name" maxlength="12" placeholder="Tu nombre" value="">
     <label class="chk">Mapa: <select id="startmap" style="flex:1;padding:6px;border-radius:6px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:14px"></select></label>
+    <label class="chk"><input type="checkbox" id="tex" checked> Texturas (césped, ladrillo, madera…)</label>
     <label class="chk">Modelo: <select id="model" style="flex:1;padding:6px;border-radius:6px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:14px"></select></label>
     <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
     <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
@@ -73,6 +74,11 @@
       <p>Sube hasta 8 sonidos (mp3, wav u ogg · máx. 3 MB y 20 s). Se quedan solo en este dispositivo. En el juego: teclas 1–8 (0 los detiene) o la computadora. Los demás los oyen por el chat de voz.</p>
       <div id="sblist"></div>
       <p id="sbmsg"></p>
+    </details>
+    <details id="ph"><summary>Fotos para las texturas</summary>
+      <p>Sube tus propias fotos para reemplazar césped, ladrillo, madera, roca, piedra o metal. Se recortan en cuadrado y se quedan solo en este dispositivo. Las que se repiten sin costuras (texturas "seamless") se ven mejor.</p>
+      <div id="phlist"></div>
+      <p id="phmsg"></p>
     </details>
     <details id="adv"><summary>Servidor y dueño (avanzado)</summary>
       <input id="ownerkey" type="password" placeholder="Clave de dueño (solo para el dueño del servidor)" autocomplete="off" spellcheck="false">
@@ -116,6 +122,7 @@ import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, sho
 import { resolveServerUrl, cleanRoomCode, backoff } from './net.js';
 import { VERSION } from './version.js';
 import { Voice } from './voice.js';
+import { textureKind, drawTexture, scaleBoxUV, scaleSphereUV, TILE, coverCrop, PHOTO_KINDS, PHOTO_SIZE, photoKey } from './textures.js';
 import { Soundboard, SLOT_COUNT, MAX_BYTES, MAX_SECONDS } from './soundboard.js';
 import { TOOLS, makePlane, planeRay, planePoke, pickTarget, buildGun, AdminUI, PANEL } from './admin.js';
 const V3 = THREE.Vector3;
@@ -161,27 +168,63 @@ let world = null;    // mapa activo
 let building = null; // mapa que se está construyendo
 const inLobby = () => !!world && world.id === LOBBY;
 const matCache = new Map();
+// Texturas procedurales (se pueden apagar desde el menú: ayuda en móviles lentos)
+let texOn = (() => { try { return localStorage.getItem('robottag.tex') !== '0'; } catch { return true; } })();
+const texCache = new Map(), texMats = [], gridMats = [];
+const photos = new Map(); // tipo -> canvas con la foto del jugador (reemplaza la textura dibujada)
+const canvasMaker = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+function getTex(kind) {
+  let t = texCache.get(kind);
+  if (!t) {
+    t = new THREE.CanvasTexture(photos.get(kind) || drawTexture(kind, canvasMaker, 128));
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    texCache.set(kind, t);
+  }
+  return t;
+}
+const WHITE = new THREE.Color(0xffffff);
+function applyTex(e) {
+  e.m.map = texOn ? getTex(e.kind) : null;
+  if (e.base != null) { e.m.color.setHex(e.base); if (texOn && photos.has(e.kind)) e.m.color.lerp(WHITE, 0.75); } // las fotos ya traen su color: solo un leve tinte del mapa
+  e.m.needsUpdate = true;
+}
+function setTextures(on) {
+  texOn = on;
+  for (const e of texMats) applyTex(e);
+  for (const gm of gridMats) { gm.transparent = true; gm.opacity = on ? 0.28 : 1; }
+}
 function mat(color, o = {}) {
-  const key = color + '|' + (o.opacity ?? 1) + '|' + (o.emissive ? 1 : 0);
+  const kind = o.kind || null;
+  const key = color + '|' + (o.opacity ?? 1) + '|' + (o.emissive ? 1 : 0) + '|' + (kind || '');
   let m = matCache.get(key);
   if (!m) {
     m = new THREE.MeshStandardMaterial({
       color, roughness: 0.7, transparent: o.opacity != null, opacity: o.opacity ?? 1,
       emissive: o.emissive ? color : 0x000000, emissiveIntensity: o.emissive ? 0.9 : 0,
     });
+    if (kind) { const e = { m, kind, base: color }; texMats.push(e); applyTex(e); }
     matCache.set(key, m);
   }
   return m;
 }
+const kindFor = (color, o) => (o.opacity != null || o.emissive ? null : textureKind(color));
 function addBox(cx, cy, cz, sx, sy, sz, color, o = {}) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat(color, o));
+  const kind = kindFor(color, o);
+  const geo = new THREE.BoxGeometry(sx, sy, sz);
+  if (kind) scaleBoxUV(geo, sx, sy, sz, TILE[kind]);
+  const mesh = new THREE.Mesh(geo, mat(color, { ...o, kind }));
   mesh.position.set(cx, cy, cz);
   building.group.add(mesh);
   if (!o.decor) building.boxes.push({ min: new V3(cx - sx / 2, cy - sy / 2, cz - sz / 2), max: new V3(cx + sx / 2, cy + sy / 2, cz + sz / 2) });
   return mesh;
 }
 function addSphere(cx, cy, cz, r, color) {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), mat(color));
+  const kind = kindFor(color, {});
+  const geo = new THREE.SphereGeometry(r, 32, 24);
+  if (kind) scaleSphereUV(geo, r, TILE[kind]);
+  const mesh = new THREE.Mesh(geo, mat(color, { kind }));
   mesh.position.set(cx, cy, cz);
   building.group.add(mesh);
   building.spheres.push({ c: new V3(cx, cy, cz), r });
@@ -235,6 +278,7 @@ function getWorld(id) {
   if (def.grid) {
     const grid = new THREE.GridHelper(60, 60, 0x2f6a2c, 0x3d7d39);
     grid.position.y = 0.01;
+    for (const gm of [].concat(grid.material)) { gridMats.push(gm); gm.transparent = true; gm.opacity = texOn ? 0.28 : 1; }
     w.group.add(grid);
   }
   for (const p of def.portals) addPortal(p);
@@ -308,6 +352,7 @@ function makeRobot(color, isLocal, model = 'sketch') {
 function makeRobotKyle(color, isLocal) {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.5 });
+  { const e = { m: mat, kind: 'metal', base: null }; texMats.push(e); applyTex(e); }
   const dark = new THREE.MeshStandardMaterial({ color: 0x14171f, roughness: 0.35, metalness: 0.3 });
   const steel = new THREE.MeshStandardMaterial({ color: 0x9aa3b5, roughness: 0.35, metalness: 0.8 });
   const glow = new THREE.MeshStandardMaterial({ color: 0x38e8ff, emissive: 0x38e8ff, emissiveIntensity: 1.2, roughness: 0.3 });
@@ -1130,6 +1175,54 @@ for (const mi of MAP_INFO) {
   o.value = mi.id; o.textContent = mi.id === LOBBY ? 'Plaza (el mapa normal)' : mi.name.charAt(0) + mi.name.slice(1).toLowerCase() + (mi.hidden ? ' (pruebas)' : '');
   startSel.appendChild(o);
 }
+function setPhoto(kind, img) {
+  if (img) {
+    const c = canvasMaker(PHOTO_SIZE, PHOTO_SIZE), { sx, sy, s } = coverCrop(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    c.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+    photos.set(kind, c);
+  } else photos.delete(kind);
+  const old = texCache.get(kind); if (old) old.dispose();
+  texCache.delete(kind);
+  for (const e of texMats) if (e.kind === kind) applyTex(e);
+  renderPhotoList();
+}
+const loadImg = (url) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+const phMsg = (t, bad) => { const m = $('phmsg'); m.textContent = t; m.style.color = bad ? '#ff8a7a' : '#7dffb0'; };
+function renderPhotoList() {
+  const list = $('phlist'); list.textContent = '';
+  for (const [kind, label] of PHOTO_KINDS) {
+    const row = document.createElement('div'); row.className = 'row';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = label + (photos.has(kind) ? ' · tu foto' : ' · dibujada');
+    const up = document.createElement('label'); up.textContent = photos.has(kind) ? 'Cambiar' : 'Subir';
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true;
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; inp.value = '';
+      if (!f) return;
+      if (f.size > 15 * 1024 * 1024) return phMsg('Esa foto pesa demasiado (máx. 15 MB)', true);
+      const blobUrl = URL.createObjectURL(f);
+      try {
+        const img = await loadImg(blobUrl);
+        setPhoto(kind, img);
+        const url = photos.get(kind).toDataURL('image/jpeg', 0.85);
+        try { localStorage.setItem(photoKey(kind), url); phMsg(label + ': foto puesta'); }
+        catch { phMsg(label + ': puesta, pero no cabe para guardarla (se perderá al recargar)', true); }
+      } catch { phMsg('No se pudo leer esa imagen', true); }
+      URL.revokeObjectURL(blobUrl);
+    });
+    up.appendChild(inp);
+    const del = document.createElement('button'); del.textContent = '✕'; del.title = 'Volver a la textura dibujada';
+    del.addEventListener('click', () => { try { localStorage.removeItem(photoKey(kind)); } catch {} setPhoto(kind, null); phMsg(label + ': textura dibujada'); });
+    row.append(nm, up, del);
+    list.appendChild(row);
+  }
+}
+renderPhotoList();
+for (const [kind] of PHOTO_KINDS) {
+  let url = null; try { url = localStorage.getItem(photoKey(kind)); } catch {}
+  if (url) loadImg(url).then((img) => setPhoto(kind, img)).catch(() => {});
+}
+$('tex').checked = texOn;
+$('tex').addEventListener('change', () => { setTextures($('tex').checked); try { localStorage.setItem('robottag.tex', $('tex').checked ? '1' : '0'); } catch {} });
 {
   const ms = $('model');
   for (const m of MODELS) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; ms.appendChild(o); }
