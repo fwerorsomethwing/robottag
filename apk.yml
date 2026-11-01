@@ -1,0 +1,53 @@
+name: Compilar APK
+
+# Se ejecuta a mano: pestaña Actions -> "Compilar APK" -> Run workflow.
+# Antes crea la variable de repositorio GAME_URL (Settings -> Secrets and variables -> Actions -> Variables)
+# con la dirección HTTPS donde tienes alojado el servidor, por ejemplo https://robot-tag.onrender.com
+on:
+  workflow_dispatch: {}
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Poner la URL del juego
+        env:
+          GAME_URL: ${{ vars.GAME_URL }}
+        run: |
+          if [ -z "$GAME_URL" ]; then echo "Falta la variable de repositorio GAME_URL"; exit 1; fi
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json'));c.server.url=process.env.GAME_URL;fs.writeFileSync('capacitor.config.json',JSON.stringify(c,null,2))"
+
+      - run: npm install
+
+      - run: npx cap add android
+
+      - name: Permiso de micrófono (chat de voz)
+        run: |
+          f=android/app/src/main/AndroidManifest.xml
+          grep -q RECORD_AUDIO "$f" || sed -i 's#<application#<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application#' "$f"
+          grep -n "RECORD_AUDIO" "$f"
+
+      - run: npx cap sync android
+
+      - name: Compilar APK
+        run: ./gradlew assembleDebug
+        working-directory: android-app/android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robot-tag-apk
+          path: android-app/android/app/build/outputs/apk/debug/app-debug.apk

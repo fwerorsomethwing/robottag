@@ -1,0 +1,4 @@
+node_modules/
+cert/
+android-app/node_modules/
+android-app/android/

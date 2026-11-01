@@ -1,0 +1,12 @@
+# Despliegue en Render: New + > Blueprint, elige este repositorio y listo.
+services:
+  - type: web
+    name: robot-tag
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: OWNER_KEY # tu clave de dueño (Owner Badge): Render te la pide al crear el Blueprint
+        sync: false
