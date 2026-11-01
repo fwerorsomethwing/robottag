@@ -13,7 +13,7 @@ const ok = (name) => console.log('  ok', ++n, name);
   for (const id of MAP_IDS) {
     const a = buildMap(id), b = buildMap(id);
     assert.equal(JSON.stringify(a), JSON.stringify(b), id + ': el mapa cambia entre generaciones');
-    assert.ok(a.boxes.length > 5, id + ': casi vacío');
+    assert.ok(a.boxes.length > 5 || id === LOBBY, id + ': casi vacío'); // la Plaza recibe sus cursos, computadora y tienda en el cliente
     assert.equal(a.id, id);
   }
   assert.throws(() => buildMap('nada'));
@@ -75,11 +75,12 @@ const ok = (name) => console.log('  ok', ++n, name);
   ok('aparición y portal de vuelta libres, sin portal en la aparición');
 }
 
-// 5) La Plaza: cubo, esfera, un portal por mapa y nada pisa los cursos, la computadora ni la tienda.
+// 5) La Plaza (1.0.3: sin cubo ni esfera, con homenaje decorativo): un portal por mapa y nada pisa los cursos, la computadora ni la tienda.
 {
   const m = buildMap(LOBBY);
-  assert.ok(m.boxes.some((b) => b.sx === 4 && b.sy === 4 && b.sz === 4), 'el cubo');
-  assert.ok(m.spheres.some((s) => s.r === 2.5), 'la esfera');
+  assert.ok(!m.boxes.some((b) => b.sx === 4 && b.sy === 4 && b.sz === 4), 'ya no hay cubo');
+  assert.equal(m.spheres.length, 0, 'ya no hay esfera');
+  assert.ok(m.decor.length >= 2, 'queda el homenaje decorativo');
   assert.deepEqual(m.portals.map((p) => p.to), ['forest', 'cave', 'canyon', 'city']);
   assert.equal(new Set(m.portals.map((p) => p.x)).size, 4);
   for (const p of m.portals) {
@@ -94,11 +95,9 @@ const ok = (name) => console.log('  ok', ++n, name);
   for (const c of Object.values(COURSES)) for (const s of courseSteps(c)) {
     assert.ok(!over(rect(s), shop), c.id + ' choca con la tienda');
   }
-  assert.ok(!over({ x0: -8, x1: -4, z0: -8, z1: -4 }, shop), 'el cubo choca con la tienda');
   assert.ok(!over({ x0: -4.5, x1: 1.8, z0: 1.5, z1: 4.5 }, shop), 'la computadora choca con la tienda');
-  assert.ok(!over({ x0: 5.5, x1: 10.5, z0: -2.5, z1: 2.5 }, shop), 'la esfera choca con la tienda');
   assert.ok(shop.x0 > -29 && shop.x1 < 29 && shop.z0 > -29 && shop.z1 < 29, 'la tienda cabe en la arena');
-  ok('Plaza: cubo, esfera, 4 portales y la tienda sin choques');
+  ok('Plaza: sin cubo ni esfera, 4 portales y la tienda sin choques');
 }
 
 // 6) Los portales: entrar en la columna de luz te lleva al mapa destino.

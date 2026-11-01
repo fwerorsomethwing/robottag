@@ -1,6 +1,6 @@
 {
   "name": "robot-tag",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Juego multijugador en línea estilo Gorilla Tag 2020 (robots) con VR, mapas, tienda, cursos y cosméticos",
   "main": "server.js",
   "scripts": {

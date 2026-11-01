@@ -58,11 +58,10 @@ const stops = (c) => courseSteps(c);
   ok('PRO es más difícil y paga más que NOOB');
 }
 
-// 3) Nada se sale de la arena ni choca con el cubo, la esfera del mapa, la computadora o entre cursos.
+// 3) Nada se sale de la arena ni choca con el homenaje, la computadora o entre cursos.
 {
   const reserved = {
-    cubo: { x0: -8, x1: -4, z0: -8, z1: -4 },
-    esfera: { x0: 5.5, x1: 10.5, z0: -2.5, z1: 2.5 },
+    homenaje: { x0: -8, x1: -4, z0: -8, z1: -4 },
     computadora: { x0: -4.5, x1: 1.8, z0: 1.5, z1: 4.5 }, // kiosco y maniquí
     aparicion: { x0: -3, x1: 3, z0: 7, z1: 11 },
   };

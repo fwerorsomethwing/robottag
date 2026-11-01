@@ -1,4 +1,4 @@
-// Mapas del juego, al estilo de Gorilla Tag de 2020: Plaza (el mapa clásico con el cubo y la esfera),
+// Mapas del juego, al estilo de Gorilla Tag de 2020: Plaza (el mapa clásico; desde la 1.0.3 ya sin el cubo y la esfera),
 // Bosque, Cueva, Cañón y Ciudad. Solo datos: sin DOM ni three.js, para poder probarlo en Node.
 //
 // Todos los jugadores deben ver EXACTAMENTE el mismo mapa, por eso se genera con un generador
@@ -15,7 +15,7 @@ export const LOBBY = 'lobby';
 export const HALF = 30; // la arena mide 60 x 60
 
 export const MAP_INFO = [
-  { id: 'lobby', name: 'PLAZA', color: 0xffffff, desc: 'El mapa clásico: cubo, esfera, cursos, computadora y tienda' },
+  { id: 'lobby', name: 'PLAZA', color: 0xffffff, desc: 'El mapa clásico: cursos, computadora y tienda (y un homenaje al cubo y la esfera)' },
   { id: 'forest', name: 'BOSQUE', color: 0x45e08a, desc: 'Árboles para trepar, ramas, troncos y una casa del árbol' },
   { id: 'cave', name: 'CUEVA', color: 0xc16bff, desc: 'Oscura, con estalactitas, pilares y una pirámide de roca' },
   { id: 'canyon', name: 'CAÑÓN', color: 0xff9a3d, desc: 'Mesas de roca, pasillos para saltar de pared a pared y un arco' },
@@ -96,8 +96,9 @@ const gap1 = (aMin, aMax, bMin, bMax) => Math.max(0, aMin - bMax, bMin - aMax);
 function lobby() {
   const g = new Gen(1);
   arena(g, { ground: 0x4f9a4a, wall: 0x9bb7e0, wallOpacity: 0.25 });
-  g.box(-6, 2, -6, 4, 4, 4, 0xe8803a);          // EL CUBO
-  g.sphere(8, 2.5, 0, 2.5, 0x3a7be8);           // LA ESFERA
+  // Homenaje: aquí estuvieron el cubo y la esfera (2020-2026). Solo decoración, sin colisión.
+  g.deco(-6, 0.1, -6, 2.4, 0.2, 1.4, 0x8a8f98);
+  g.deco(-6, 0.75, -6, 1.5, 1.1, 0.3, 0x9a9fa8);
   const portals = MAP_INFO.filter((m) => m.id !== LOBBY && !m.hidden).map((m, i) => ({
     x: -12 + i * 8, z: 26, to: m.id, name: m.name, color: m.color,
   }));

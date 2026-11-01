@@ -22,7 +22,7 @@ WebXR solo funciona en **contexto seguro** (HTTPS o `localhost`). Dos formas de 
 
 ### Controles en VR
 
-- **Mueve los brazos y toca el suelo, las paredes, el cubo o la esfera**: tu cuerpo se mueve al revés que la mano, como en Gorilla Tag. Empuja hacia abajo/atrás alternando manos para correr y saltar.
+- **Mueve los brazos y toca el suelo, las paredes y las plataformas**: tu cuerpo se mueve al revés que la mano, como en Gorilla Tag. Empuja hacia abajo/atrás alternando manos para correr y saltar.
 - Al soltar la superficie sales lanzado con la velocidad de tus manos (tope de salto 6,5 m/s; el jugador LAVA va un 12 % más rápido).
 - **Stick derecho**: giro de 45° por salto.
 - Los mandos vibran al tocar una superficie.
@@ -109,7 +109,7 @@ Hablas con los jugadores de tu sala y suena en 3D desde su robot: más bajo cuan
 
 En la **Plaza** hay 4 columnas de luz al fondo; entra en una para viajar. En cada mapa, la columna blanca **VOLVER** te regresa.
 
-- **Plaza**: el mapa clásico con el cubo y la esfera, los cursos, la computadora y la tienda.
+- **Plaza**: el mapa clásico, ya sin el cubo y la esfera (con un homenaje donde estaban), con los cursos, la computadora y la tienda.
 - **Bosque**: árboles para trepar, ramas, troncos y una casa del árbol.
 - **Cueva**: oscura, con estalactitas, pilares y una pirámide de roca.
 - **Cañón**: mesas de roca, pasillos para saltar de pared a pared y un arco.
@@ -145,7 +145,7 @@ Con 2 o más jugadores, uno es **LAVA** (naranja). Si toca a otro jugador, lo co
 
 ## Mapa
 
-La Plaza es una arena de 60×60 con paredes, un **cubo** naranja y una **esfera** azul. Mira la sección Mapas para los demás.
+La Plaza es una arena de 60×60 con paredes. Mira la sección Mapas para los demás.
 
 ## Dónde ajustar las físicas
 
@@ -190,3 +190,8 @@ Se pueden apagar en el menú ("Texturas") si el juego va lento en un móvil o en
 ## Fotos para las texturas (1.0.2.10)
 En el menú, **Fotos para las texturas**: sube tus propias fotos para reemplazar césped, ladrillo, madera, roca, piedra o metal (también el metal de Kyle). Se recortan en cuadrado, se reducen a 256 px y se guardan solo en tu navegador (localStorage); no se suben al servidor. ✕ vuelve a la textura dibujada. Cada jugador ve el juego con sus propias fotos. Si la casilla "Texturas" está apagada, no se usan.
 Consejo: las fotos "seamless" (sin costuras) se ven mejor al repetirse.
+
+## 1.0.3: adiós al cubo y la esfera
+- La Plaza ya no tiene el cubo naranja ni la esfera azul que estuvieron desde el principio. Donde estaba el cubo hay un pequeño homenaje decorativo ("EL CUBO Y LA ESFERA · 2020–2026"), sin colisión.
+- Easter egg: la computadora ahora es una laptop plateada de la época de 2005 (tapa con marco negro, teclado en 3D, panel táctil, bisagra, botón de encendido y luces). Es un diseño genérico: sin marcas ni logos.
+- El número de versión ya es 1.0.3 también en `package.json`.

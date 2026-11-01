@@ -302,6 +302,8 @@ function buildLobbyExtras() {
     const b = signSprite('META ' + course.name.replace('CURSO ', ''), '#ffcf3d'); b.position.set(fin.x, fin.top + 3.4, fin.z);
     building.group.add(a, b);
   }
+  const rip = signSprite('EL CUBO Y LA ESFERA · 2020–2026', '#cfd6e6'); rip.position.set(-6, 2.2, -6); rip.scale.set(4.4, 1.1, 1);
+  building.group.add(rip); // homenaje donde estaban
   buildKiosk();
   buildShop();
 }
@@ -502,12 +504,34 @@ const screenCtx = screenCanvas.getContext('2d');
 const screenTex = new THREE.CanvasTexture(screenCanvas);
 screenTex.colorSpace = THREE.SRGBColorSpace;
 function buildKiosk() {
-  addBox(0, 0.25, 3, 2.6, 0.5, 1.2, 0x2a3350); // base con colisión; el monitor es solo visual para poder tocarlo con las manos
-  const casing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.6, 0.2), new THREE.MeshStandardMaterial({ color: 0x1a2038, roughness: 0.6 }));
-  casing.position.set(0, 1.2, 3.5);
+  // Easter egg: la computadora es una laptop plateada de 2005. La pantalla (el lid) está de pie, mirando a +Z,
+  // y el teclado queda delante, hacia los jugadores. Todo es visual salvo la base, que tiene colisión.
+  const silver = new THREE.MeshStandardMaterial({ color: 0xc3c8d0, roughness: 0.5, metalness: 0.1 });
+  const darkSilver = new THREE.MeshStandardMaterial({ color: 0x8b919c, roughness: 0.55, metalness: 0.1 });
+  const keyMat = new THREE.MeshStandardMaterial({ color: 0x24272d, roughness: 0.55 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x08090c, roughness: 0.4 });
+  const put = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); building.group.add(o); return o; };
+  // base con colisión (el monitor es solo visual para poder tocarlo con las manos)
+  building.boxes.push({ min: new V3(-1.3, 0, 3.6), max: new V3(1.3, 0.5, 4.3) });
+  put(new THREE.BoxGeometry(2.6, 0.5, 0.7), silver, 0, 0.25, 3.95);
+  // tapa (lid) con marco negro y la pantalla
+  put(new THREE.BoxGeometry(2.6, 1.6, 0.2), silver, 0, 1.2, 3.5);
+  put(new THREE.BoxGeometry(2.5, 1.5, 0.008), black, 0, 1.2, 3.6);
   const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), new THREE.MeshBasicMaterial({ map: screenTex }));
   screenMesh.position.copy(SCREEN_C);
-  building.group.add(casing, screenMesh);
+  building.group.add(screenMesh);
+  // bisagra
+  put(new THREE.CylinderGeometry(0.06, 0.06, 2.3, 12).rotateZ(Math.PI / 2), darkSilver, 0, 0.52, 3.58);
+  // teclado: 4 filas de teclas, barra espaciadora y panel táctil
+  const keyGeo = new THREE.BoxGeometry(0.145, 0.035, 0.1);
+  for (let r = 0; r < 4; r++) for (let i = 0; i < 14; i++) put(keyGeo, keyMat, -1.07 + i * 0.165, 0.515, 3.72 + r * 0.115);
+  put(new THREE.BoxGeometry(0.9, 0.035, 0.1), keyMat, 0, 0.515, 4.18);
+  put(new THREE.BoxGeometry(0.55, 0.012, 0.16), darkSilver, 0, 0.506, 4.24);
+  // botón de encendido y lucecitas
+  put(new THREE.BoxGeometry(0.1, 0.03, 0.06), darkSilver, 1.12, 0.515, 3.66);
+  for (const [lx, c] of [[-1.15, 0x39ff88], [-1.07, 0xffb347]]) {
+    put(new THREE.BoxGeometry(0.035, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: c }), lx, 0.505, 4.27);
+  }
 }
 
 const soundboard = new Soundboard();
