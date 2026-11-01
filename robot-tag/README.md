@@ -172,3 +172,13 @@ test/                   pruebas
 ## Modelo Kyle (1.0.2.4)
 Nuevo cuerpo de robot "Kyle (clásico 2020)": robot de cajas con visor, como en los primeros Gorilla Tag. Es un diseño propio inspirado en ese estilo (no incluye el asset original de Unity).
 Elígelo en el menú ("Modelo") o en la computadora → MODELO. Los demás jugadores te ven con ese modelo. El servidor solo acepta modelos conocidos (`MODELS` en `rooms.js`).
+
+## Cara de dueño (1.0.2.5)
+Quien lleva el Owner Badge (solo el dueño, validado por el servidor) muestra además la "cara de dueño" del boceto: dos ojos negros con cejas arqueadas y una sonrisa chica. Funciona con los dos modelos de robot y la ven todos los jugadores. Si el dueño se quita el Owner Badge en la computadora, vuelve a su cara normal.
+
+## Soundboard personalizado (1.0.2.8)
+Sube hasta 8 sonidos propios (mp3, wav u ogg · máx. 3 MB y 20 s) desde el menú: **Soundboard (sonidos propios)**.
+- Se guardan solo en tu navegador/dispositivo (IndexedDB); no se suben al servidor.
+- En el juego: teclas **1–8** para sonar y **0** para detenerlos. En móvil, botón 🔊. En VR y PC, también desde la computadora → SONIDOS.
+- Los demás jugadores los oyen por el chat de voz (se mezclan con tu micrófono), así que hace falta tener el chat de voz activado. Sin él, solo lo oyes tú.
+- Se pueden sonar hasta 4 a la vez. Silenciar el micrófono no corta el soundboard.

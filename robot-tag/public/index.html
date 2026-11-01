@@ -28,6 +28,14 @@
   #card label.chk{display:flex;align-items:center;gap:8px;margin:0 0 10px;text-align:left;font-size:14px;color:#cdd6f4;cursor:pointer}
   #card label.chk input{width:auto;margin:0}
   #mic{display:none;position:fixed;top:12px;right:12px;width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(61,165,255,.35);color:#fff;font-size:24px;touch-action:none;user-select:none}
+  #sbbtn{display:none;position:fixed;top:76px;right:12px;width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(15,159,181,.45);color:#fff;font-size:24px;touch-action:none;user-select:none}
+  #sbpanel{display:none;position:fixed;top:140px;right:12px;width:200px;padding:8px;border-radius:12px;background:rgba(10,14,30,.85);grid-template-columns:1fr 1fr;gap:6px}
+  #sbpanel button{padding:12px 4px;border-radius:8px;border:1px solid #44527f;background:#0f9fb5;color:#fff;font-size:13px;touch-action:none}
+  #sbpanel button.empty{background:#3a4261;color:#9aa3bd}
+  #sb .row{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px}
+  #sb .row .nm{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #sb .row button,#sb .row label{padding:4px 8px;border-radius:6px;border:1px solid #44527f;background:#1b2447;color:#fff;font-size:13px;cursor:pointer}
+  #sb p{font-size:12px;opacity:.8;margin:4px 0}
   #mic.muted{background:rgba(255,80,80,.55)}
   #adm,#fire{display:none;position:fixed;border-radius:50%;border:2px solid rgba(255,255,255,.55);color:#fff;touch-action:none;user-select:none}
   #adm{top:76px;right:12px;width:56px;height:56px;background:rgba(160,90,255,.45);font-size:24px}
@@ -46,6 +54,8 @@
 <div id="cross"></div>
 <div id="notice"></div>
 <button id="mic" title="Silenciar micrófono">🎤</button>
+<button id="sbbtn" title="Soundboard">🔊</button>
+<div id="sbpanel"></div>
 <button id="adm" title="Panel de admin">⚙</button>
 <button id="fire" title="Disparar">🔫</button>
 <div id="glitch">NaN</div>
@@ -59,6 +69,11 @@
     <label class="chk">Modelo: <select id="model" style="flex:1;padding:6px;border-radius:6px;border:1px solid #44527f;background:#0f1428;color:#fff;font-size:14px"></select></label>
     <input id="room" maxlength="8" placeholder="Código de sala privada (opcional)" autocomplete="off">
     <label class="chk"><input type="checkbox" id="voice" checked> Chat de voz (usar micrófono)</label>
+    <details id="sb"><summary>Soundboard (sonidos propios)</summary>
+      <p>Sube hasta 8 sonidos (mp3, wav u ogg · máx. 3 MB y 20 s). Se quedan solo en este dispositivo. En el juego: teclas 1–8 (0 los detiene) o la computadora. Los demás los oyen por el chat de voz.</p>
+      <div id="sblist"></div>
+      <p id="sbmsg"></p>
+    </details>
     <details id="adv"><summary>Servidor y dueño (avanzado)</summary>
       <input id="ownerkey" type="password" placeholder="Clave de dueño (solo para el dueño del servidor)" autocomplete="off" spellcheck="false">
       <input id="server" placeholder="vacío = este mismo servidor · o https://tu-juego.onrender.com" autocomplete="off" spellcheck="false">
@@ -101,6 +116,7 @@ import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, sho
 import { resolveServerUrl, cleanRoomCode, backoff } from './net.js';
 import { VERSION } from './version.js';
 import { Voice } from './voice.js';
+import { Soundboard, SLOT_COUNT, MAX_BYTES, MAX_SECONDS } from './soundboard.js';
 import { TOOLS, makePlane, planeRay, planePoke, pickTarget, buildGun, AdminUI, PANEL } from './admin.js';
 const V3 = THREE.Vector3;
 const profile = new Profile(); // nombre, color, monedas y cosméticos (se guarda en este navegador)
@@ -286,7 +302,7 @@ function makeRobot(color, isLocal, model = 'sketch') {
   scene.add(g, handL, handR, armL, armR);
   if (isLocal) { headParts.forEach((m) => (m.visible = false)); cos.visible = false; }
   // en primera persona los brazos son más finos para no tapar la vista
-  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.045 : 0.115, model: 'sketch' };
+  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.045 : 0.115, model: 'sketch', hideHead: isLocal, faceParts: [eyeL, eyeR, mouth], faceZ: -0.176, faceW: 0.27 };
 }
 /** Modelo "Kyle": robot de cajas con visor, al estilo de los primeros Gorilla Tag (diseño propio, no es el asset de Unity). */
 function makeRobotKyle(color, isLocal) {
@@ -318,7 +334,50 @@ function makeRobotKyle(color, isLocal) {
   g.add(cos);
   scene.add(g, handL, handR, armL, armR);
   if (isLocal) { headParts.forEach((m) => (m.visible = false)); cos.visible = false; }
-  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.035 : 0.055, model: 'kyle' };
+  return { g, mat, handL, handR, armL, armR, headParts, cos, cosKey: '', color, tagged: false, armThick: isLocal ? 0.035 : 0.055, model: 'kyle', hideHead: isLocal, faceParts: [visor, eyeL, eyeR], faceZ: -0.158, faceW: 0.30 };
+}
+/** Cara del dueño en 3D (según el boceto): ojos negros altos en relieve, cejas arqueadas y sonrisa chica, pegados a la superficie de la cabeza. */
+function buildOwnerFace(model) {
+  const g = new THREE.Group();
+  const black = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.3, metalness: 0.1 });
+  const K = 0.00074; // metros por píxel del boceto (650x375)
+  const R = 0.17;
+  const surf = (px, py, lift) => { // punto del boceto -> punto sobre la cabeza (esfera del boceto o frente plana de Kyle) y su normal
+    const x = (px - 322) * K, y = -(py - 158) * K;
+    if (model === 'kyle') return { p: new V3(x, y, -0.15 - lift), n: new V3(0, 0, -1) };
+    const z = -Math.sqrt(Math.max(R * R - x * x - y * y, 0.0004));
+    const n = new V3(x, y, z).normalize();
+    return { p: n.clone().multiplyScalar(R + lift), n };
+  };
+  const eye = (cx, top, bot, width) => {
+    const r = width * K / 2, len = Math.max((bot - top) * K - 2 * r, 0.001);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 14), black);
+    const { p, n } = surf(cx, (top + bot) / 2, 0.002);
+    m.position.copy(p); m.scale.z = 0.45; // aplastado: relieve suave
+    m.quaternion.setFromUnitVectors(new V3(0, 0, -1), n);
+    // el aplastado va en el eje de la normal: se aplica con el cuaternión ya puesto
+    g.add(m);
+  };
+  eye(271.5, 72, 162, 47); eye(449, 83, 163, 48);
+  const line = (curves, rad) => {
+    const pts = [];
+    for (const c of curves) for (const q of new THREE.CubicBezierCurve(...c.map((v) => new THREE.Vector2(v[0], v[1]))).getPoints(14)) pts.push(surf(q.x, q.y, 0.001).p);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, rad, 8, false), black));
+  };
+  line([[[202, 158], [212, 100], [225, 72], [250, 72]], [[250, 72], [290, 70], [322, 100], [338, 152]]], 0.0046); // ceja izquierda
+  line([[[393, 153], [392, 120], [394, 92], [425, 87]], [[425, 87], [470, 80], [505, 110], [512, 160]]], 0.0046); // ceja derecha
+  line([[[132, 208], [152, 232], [190, 246], [228, 243]]], 0.0046); // sonrisa
+  return g;
+}
+function setOwnerFace(rb, on) {
+  if (!!rb.ownerFace === on) return;
+  if (rb.ownerFace) { rb.g.remove(rb.ownerFace); rb.ownerFace = null; }
+  if (on) {
+    const f = buildOwnerFace(rb.model);
+    f.visible = !rb.hideHead;
+    rb.g.add(f); rb.ownerFace = f;
+  }
+  for (const q of rb.faceParts) q.visible = !on && !rb.hideHead;
 }
 function applyCosmetics(rb, equipped) {
   const key = SLOTS.map((s) => (equipped && equipped[s]) || '').join('|');
@@ -333,6 +392,7 @@ function applyCosmetics(rb, equipped) {
     else rb.cos.add(m);
   }
   if (rb.stick) rb.stick.visible = !rb.toolKey;
+  setOwnerFace(rb, !!(equipped && equipped.badge === 'owner_badge')); // el Owner Badge trae la cara de dueño
 }
 /** Arma de admin en la mano derecha (Kick Gun / NaN Gun). Sustituye al palo mientras se lleva. */
 function applyTool(rb, tool) {
@@ -405,12 +465,14 @@ function buildKiosk() {
   building.group.add(casing, screenMesh);
 }
 
+const soundboard = new Soundboard();
 const computer = new Computer({
-  profile, courses: COURSES,
+  profile, courses: COURSES, soundboard,
   actions: {
     teleport: (target) => teleportTo(target),
     changed: (kind) => onProfileChanged(kind),
     say: (text, color) => notice(text, color || '#ffffff'),
+    sound: (i) => playSlot(i),
   },
 });
 function refreshScreen() {
@@ -985,6 +1047,7 @@ function syncMicButton() {
   b.style.display = isTouch && playing && voice.state === 'on' ? 'block' : 'none';
   b.classList.toggle('muted', voice.muted);
   b.textContent = voice.muted ? '🔇' : '🎤';
+  syncSbButton();
 }
 function toggleMic() {
   const m = voice.toggleMute();
@@ -993,6 +1056,63 @@ function toggleMic() {
   notice(m ? 'Micrófono silenciado' : 'Micrófono activado', m ? '#ff8a7a' : '#7dffb0');
   if (inVR) pulse('left');
 }
+// ---------- Soundboard personalizado ----------
+async function playSlot(i) {
+  const r = await soundboard.play(i, voice);
+  if (r.ok) { if (!r.shared && playing && !soundboard.warned) { soundboard.warned = true; notice('Solo tú lo oyes: activa el chat de voz con micrófono para que los demás lo oigan', '#ffd23d'); } return; }
+  if (r.reason === 'empty') notice('Espacio ' + (i + 1) + ' vacío: sube un sonido en el menú', '#ff8a7a');
+  else if (r.reason === 'busy') notice('Demasiados sonidos a la vez', '#ff8a7a');
+  else notice('No se pudo reproducir ese sonido', '#ff8a7a');
+}
+const sbMsg = (t, bad) => { const m = $('sbmsg'); m.textContent = t; m.style.color = bad ? '#ff8a7a' : '#7dffb0'; };
+function renderSoundboard() {
+  const list = $('sblist'); list.textContent = '';
+  const names = soundboard.names();
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const row = document.createElement('div'); row.className = 'row';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (i + 1) + '. ' + (names[i] || '(vacío)');
+    const up = document.createElement('label'); up.textContent = names[i] ? 'Cambiar' : 'Subir';
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*'; inp.hidden = true;
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; inp.value = '';
+      if (!f) return;
+      if (f.size > MAX_BYTES) return sbMsg('Ese archivo pesa más de ' + (MAX_BYTES >> 20) + ' MB', true);
+      const data = await f.arrayBuffer();
+      const c = await soundboard.check(data);
+      if (!c.ok) return sbMsg(c.reason === 'long' ? 'Dura más de ' + MAX_SECONDS + ' segundos' : 'No se pudo leer ese audio (prueba mp3, wav u ogg)', true);
+      const r = await soundboard.set(i, f.name, data);
+      sbMsg(r.ok ? 'Guardado en el espacio ' + (i + 1) + ': ' + r.name : 'No se pudo guardar', !r.ok);
+    });
+    up.appendChild(inp);
+    const play = document.createElement('button'); play.textContent = '▶'; play.title = 'Probar';
+    play.addEventListener('click', () => playSlot(i));
+    const del = document.createElement('button'); del.textContent = '✕'; del.title = 'Borrar';
+    del.addEventListener('click', () => { soundboard.clear(i); sbMsg('Espacio ' + (i + 1) + ' vacío'); });
+    row.append(nm, up, play, del);
+    list.appendChild(row);
+  }
+  // panel táctil
+  const panel = $('sbpanel'); panel.textContent = '';
+  names.forEach((n, i) => {
+    const b = document.createElement('button'); b.textContent = (i + 1) + '. ' + (n || '—'); if (!n) b.className = 'empty';
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); playSlot(i); });
+    panel.appendChild(b);
+  });
+}
+soundboard.onChange = () => { renderSoundboard(); computer.build(); computer.dirty = true; };
+soundboard.load();
+$('sbbtn').addEventListener('pointerdown', (e) => { e.preventDefault(); const p = $('sbpanel'); p.style.display = p.style.display === 'grid' ? 'none' : 'grid'; });
+function syncSbButton() {
+  $('sbbtn').style.display = isTouch && playing ? 'block' : 'none';
+  if (!(isTouch && playing)) $('sbpanel').style.display = 'none';
+}
+document.addEventListener('keydown', (e) => {
+  const typing = document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+  if (!playing || e.repeat || typing) return;
+  const m = /^Digit([0-8])$/.exec(e.code);
+  if (!m) return;
+  if (m[1] === '0') soundboard.stopAll(); else playSlot(Number(m[1]) - 1);
+});
 $('mic').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleMic(); });
 document.addEventListener('keydown', (e) => {
   const typing = document.activeElement === $('name') || document.activeElement === $('room') || document.activeElement === $('server') || document.activeElement === $('ownerkey');
@@ -1492,6 +1612,7 @@ function frame(now) {
 enterMap(MAP_INFO.some((m) => m.id === startMapParam) ? startMapParam : LOBBY, true);
 window.__act = { setTool, toggleAdmin, fire: () => fireTool(head, camForward()) }; // solo para pruebas: el servidor decide si vale
 window.__dbg = () => ({ admin: { open: adminOpen, tool: curTool, frozen: isFrozen(), owner: profile.owner, kicked }, voice: voice.debug(), remotes: remotes.size, map: currentMapId, net: netState, my: myId, it: itId, last: window.__lastSnap });
+window.__sb = () => ({ names: soundboard.names(), playing: soundboard.playing.size, mix: !!voice.mix, vstate: voice.state });
 renderer.setAnimationLoop(frame);
 </script>
 </body>

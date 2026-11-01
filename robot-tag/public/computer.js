@@ -6,7 +6,7 @@ import { visibleCatalog, PALETTE, NAME_MAX, MODELS } from './cosmetics.js';
 export const SCREEN = { W: 1024, H: 597 };
 
 const KEY_ROWS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
-const TITLES = { home: 'COMPUTADORA', name: 'TU NOMBRE', color: 'ELIGE TU COLOR', model: 'MODELO DEL ROBOT', cosmetics: 'COSMÉTICOS', courses: 'CURSOS' };
+const TITLES = { home: 'COMPUTADORA', name: 'TU NOMBRE', color: 'ELIGE TU COLOR', model: 'MODELO DEL ROBOT', sounds: 'SOUNDBOARD', cosmetics: 'COSMÉTICOS', courses: 'CURSOS' };
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 const fmt = (t) => (t == null ? '--' : t.toFixed(1) + ' s');
 
@@ -27,7 +27,8 @@ export class Computer {
    * @param {Record<string, any>} o.courses
    * @param {{teleport: (target: 'noob'|'pro'|'spawn') => void, changed: (what: string) => void}} o.actions
    */
-  constructor({ profile, courses, actions }) {
+  constructor({ profile, courses, actions, soundboard = null }) {
+    this.soundboard = soundboard; // opcional: { names(): (string|null)[] }
     this.profile = profile;
     this.courses = courses;
     this.actions = actions;
@@ -63,10 +64,10 @@ export class Computer {
         const items = [
           ['name', 'NOMBRE', '#2f5bd6'], ['color', 'COLOR', '#8a5cff'],
           ['model', 'MODELO', '#d6456b'], ['cosmetics', 'COSMÉTICOS', '#e08a1e'],
-          ['courses', 'CURSOS', '#1fa971'],
+          ['sounds', 'SONIDOS', '#0f9fb5'], ['courses', 'CURSOS', '#1fa971'],
         ];
         items.forEach(([page, label, color], i) => add({
-          id: 'go-' + page, x: 52 + (i % 2) * 480, y: 104 + Math.floor(i / 2) * 135, w: i === 4 ? 920 : 440, h: 120,
+          id: 'go-' + page, x: 52 + (i % 2) * 480, y: 104 + Math.floor(i / 2) * 135, w: 440, h: 120,
           label, color, fs: 42, onPress: () => this.go(page),
         }));
         break;
@@ -110,6 +111,20 @@ export class Computer {
           color: P.model === m.id ? '#1fa971' : '#2f4aa8', active: P.model === m.id,
           onPress: () => { P.setModel(m.id); this.actions.changed('model'); this.say('Modelo: ' + m.name); this.build(); },
         }));
+        back();
+        break;
+      }
+      case 'sounds': {
+        const names = this.soundboard ? this.soundboard.names() : [];
+        for (let i = 0; i < 8; i++) {
+          const nm = names[i] || null;
+          add({
+            id: 'snd-' + i, x: 52 + (i % 2) * 480, y: 100 + Math.floor(i / 2) * 92, w: 440, h: 82,
+            label: (i + 1) + '. ' + (nm || '(vacío)'), sub: nm ? 'Pulsa para sonar' : 'Súbelo desde el menú', fs: 34,
+            color: nm ? '#0f9fb5' : '#3a4261',
+            onPress: () => { if (!nm) return this.say('Espacio vacío: sube un sonido desde el menú principal'); this.actions.sound && this.actions.sound(i); },
+          });
+        }
         back();
         break;
       }
