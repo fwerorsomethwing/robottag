@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { SHOP, SHOP_RECT, shopItems, pickShopItem, touchShopItem, shopLabel, shopPurchase, coinsLabel } from '../public/shop.js';
-import { CATALOG, Profile } from '../public/cosmetics.js';
+import { CATALOG, SHOP_CATALOG, Profile } from '../public/cosmetics.js';
 
 const V3 = THREE.Vector3;
 let n = 0;
@@ -11,23 +11,25 @@ const memory = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ?
 // 1) Un pedestal por cosmético, dentro del local y sin amontonarse.
 {
   const items = shopItems();
-  assert.deepEqual(items.map((i) => i.name), CATALOG.map((c) => c.name));
-  assert.deepEqual(items.map((i) => i.name).sort(), ['Early Access Badge', 'Headphones']);
+  assert.deepEqual(items.map((i) => i.name), SHOP_CATALOG.map((c) => c.name));
+  assert.ok(!items.some((i) => i.id === 'owner_badge'), 'el Owner Badge no se vende');
+  assert.deepEqual(items.map((i) => i.name).sort(), ['Early Access Badge', 'Headphones', 'Stick']);
   for (const it of items) {
     assert.ok(it.x > SHOP_RECT.x0 + 1 && it.x < SHOP_RECT.x1 - 1 && it.z > SHOP_RECT.z0 + 1 && it.z < SHOP_RECT.z1 - 1, it.id + ' fuera del local');
     assert.ok(it.y > 1 && it.y < 2.2, 'a altura de manos');
   }
-  assert.ok(Math.hypot(items[0].x - items[1].x, items[0].z - items[1].z) > 2, 'pedestales muy juntos');
+  for (let i = 1; i < items.length; i++) assert.ok(Math.hypot(items[i].x - items[i - 1].x, items[i].z - items[i - 1].z) > 2, 'pedestales muy juntos');
   ok('un pedestal por cosmético, dentro del local');
 }
 
 // 2) Apuntar a un cosmético (mira desde la entrada) lo elige; apuntar a otro lado no.
 {
-  const [a, b] = shopItems();
+  const [a, b, c] = shopItems();
   const eye = new V3(SHOP.x, 1.6, SHOP.z + 4.5);
   const at = (it) => new V3(it.x - eye.x, it.y - eye.y, it.z - eye.z).normalize();
   assert.equal(pickShopItem(eye, at(a)).id, a.id);
   assert.equal(pickShopItem(eye, at(b)).id, b.id);
+  assert.equal(pickShopItem(eye, at(c)).id, c.id);
   assert.equal(pickShopItem(eye, new V3(0, 0, 1)), null);
   assert.equal(pickShopItem(new V3(SHOP.x, 1.6, SHOP.z + 12), at(a), 6), null, 'demasiado lejos');
   ok('apuntar elige el cosmético correcto y respeta la distancia');

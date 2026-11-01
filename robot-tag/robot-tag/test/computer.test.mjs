@@ -30,7 +30,7 @@ const setup = () => {
 // 1) Todas las páginas se dibujan sin errores y muestran lo esperado.
 {
   const { computer } = setup();
-  for (const page of ['home', 'name', 'color', 'cosmetics', 'courses']) {
+  for (const page of ['home', 'name', 'color', 'model', 'sounds', 'cosmetics', 'courses']) {
     computer.go(page);
     const ctx = fakeCtx();
     assert.doesNotThrow(() => computer.draw(ctx), page);
@@ -50,7 +50,7 @@ const setup = () => {
 // 2) Ningún botón se solapa con otro dentro de la misma página.
 {
   const { computer } = setup();
-  for (const page of ['home', 'name', 'color', 'cosmetics', 'courses']) {
+  for (const page of ['home', 'name', 'color', 'model', 'sounds', 'cosmetics', 'courses']) {
     computer.go(page);
     const bs = computer.buttons;
     for (let i = 0; i < bs.length; i++) {

@@ -20,9 +20,18 @@ const THREE_FILE = path.join(__dirname, 'node_modules', 'three', 'build', 'three
 
 // Mapas válidos: se leen de public/maps.js para que servidor y cliente nunca se desincronicen.
 let rooms;
+// Expulsados: IP -> hasta cuándo no pueden volver a entrar (por defecto 2 minutos; KICK_BAN_SECONDS lo cambia)
+const bans = new Map();
+const KICK_BAN_MS = Math.max(0, Number(process.env.KICK_BAN_SECONDS || 120)) * 1000;
+setInterval(() => { const t = Date.now(); for (const [ip, until] of bans) if (until < t) bans.delete(ip); }, 60000).unref();
 const ready = import('./public/maps.js').then((m) => {
   rooms = new Rooms({
     mapIds: m.MAP_IDS,
+    ownerKey: process.env.OWNER_KEY || '',
+    kick: (p) => {
+      if (p.ip) bans.set(p.ip, Date.now() + KICK_BAN_MS);
+      setTimeout(() => { try { p.ws.close(4001, 'kicked'); } catch { /* ya cerrada */ } }, 150); // deja que llegue el aviso
+    },
     defaultMap: m.LOBBY,
     send: (p, s) => { if (p.ws.readyState === 1) p.ws.send(s); },
   });
@@ -74,8 +83,17 @@ async function loadOrCreateCert() {
 
 function attachSockets(srv) {
   const wss = new WebSocketServer({ server: srv, maxPayload: 12288 });
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); // detrás del proxy de Render
+    const ip = fwd || req.socket.remoteAddress || '';
+    const until = bans.get(ip) || 0;
+    if (until > Date.now()) { // expulsado hace poco
+      ws.send(JSON.stringify({ t: 'kicked', banned: true, secs: Math.ceil((until - Date.now()) / 1000) }));
+      ws.close(4001, 'kicked');
+      return;
+    }
     const player = rooms.newPlayer(ws);
+    player.ip = ip;
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
     ws.send(JSON.stringify({ t: 'welcome', id: player.id, v: VERSION, ice: buildIce(process.env) }));

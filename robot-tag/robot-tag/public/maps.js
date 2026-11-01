@@ -1,4 +1,4 @@
-// Mapas del juego, al estilo de Gorilla Tag de 2020: Plaza (el mapa clásico con el cubo y la esfera),
+// Mapas del juego, al estilo de Gorilla Tag de 2020: Plaza (el mapa clásico; desde la 1.0.3 ya sin el cubo y la esfera),
 // Bosque, Cueva, Cañón y Ciudad. Solo datos: sin DOM ni three.js, para poder probarlo en Node.
 //
 // Todos los jugadores deben ver EXACTAMENTE el mismo mapa, por eso se genera con un generador
@@ -15,11 +15,13 @@ export const LOBBY = 'lobby';
 export const HALF = 30; // la arena mide 60 x 60
 
 export const MAP_INFO = [
-  { id: 'lobby', name: 'PLAZA', color: 0xffffff, desc: 'El mapa clásico: cubo, esfera, cursos, computadora y tienda' },
+  { id: 'lobby', name: 'PLAZA', color: 0xffffff, desc: 'El mapa clásico: cursos, computadora y tienda (y un homenaje al cubo y la esfera)' },
   { id: 'forest', name: 'BOSQUE', color: 0x45e08a, desc: 'Árboles para trepar, ramas, troncos y una casa del árbol' },
   { id: 'cave', name: 'CUEVA', color: 0xc16bff, desc: 'Oscura, con estalactitas, pilares y una pirámide de roca' },
   { id: 'canyon', name: 'CAÑÓN', color: 0xff9a3d, desc: 'Mesas de roca, pasillos para saltar de pared a pared y un arco' },
   { id: 'city', name: 'CIUDAD', color: 0x3da5ff, desc: 'Edificios, calles, coches y tejados para saltar' },
+  // Mapa para probar la física: no sale entre los portales de la Plaza; se elige en el menú o desde el panel de admin.
+  { id: 'test', name: 'MAPA DE PRUEBAS', color: 0xffd23d, desc: 'Escaleras, pilares, huecos, pasillo de paredes, esferas y una barra baja', hidden: true },
 ];
 export const MAP_IDS = MAP_INFO.map((m) => m.id);
 export const mapInfo = (id) => MAP_INFO.find((m) => m.id === id) || null;
@@ -94,9 +96,10 @@ const gap1 = (aMin, aMax, bMin, bMax) => Math.max(0, aMin - bMax, bMin - aMax);
 function lobby() {
   const g = new Gen(1);
   arena(g, { ground: 0x4f9a4a, wall: 0x9bb7e0, wallOpacity: 0.25 });
-  g.box(-6, 2, -6, 4, 4, 4, 0xe8803a);          // EL CUBO
-  g.sphere(8, 2.5, 0, 2.5, 0x3a7be8);           // LA ESFERA
-  const portals = MAP_INFO.filter((m) => m.id !== LOBBY).map((m, i) => ({
+  // Homenaje: aquí estuvieron el cubo y la esfera (2026-2026). Solo decoración, sin colisión.
+  g.deco(-6, 0.1, -6, 2.4, 0.2, 1.4, 0x8a8f98);
+  g.deco(-6, 0.75, -6, 1.5, 1.1, 0.3, 0x9a9fa8);
+  const portals = MAP_INFO.filter((m) => m.id !== LOBBY && !m.hidden).map((m, i) => ({
     x: -12 + i * 8, z: 26, to: m.id, name: m.name, color: m.color,
   }));
   return g.out({
@@ -270,7 +273,54 @@ function city() {
   });
 }
 
-const BUILDERS = { lobby, forest, cave, canyon, city };
+// ---------- MAPA DE PRUEBAS ----------
+// Una pieza de cada cosa para probar la física: escalera, pilares de varias alturas, huecos de 1 a 5 m,
+// pasillo para saltar de pared a pared, esferas de varios tamaños y una barra baja para la cabeza.
+function testMap() {
+  const g = new Gen(77);
+  arena(g, { ground: 0x7d8799, wall: 0xa9b4c9, wallOpacity: 0.3 });
+  g.keepOut(SPAWN_KEEP);
+  // Escalera de 10 peldaños de 0,5 m (arriba, 5 m)
+  for (let i = 0; i < 10; i++) {
+    const h = (i + 1) * 0.5;
+    g.box(-27 + i * 1.5 + 0.75, h / 2, -25, 1.5, h, 4, i % 2 ? 0xe8a33a : 0xd88a22);
+  }
+  // Pilares de 1 a 4 m en cuadrícula, a 4 m unos de otros
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const h = 1 + ((i * 2 + j) % 4);
+    g.box(-4 + i * 4, h / 2, -22 + j * 4, 1, h, 1, 0x4a90d9);
+  }
+  // Huecos de 1, 2, 3, 4 y 5 m entre plataformas de 3x3 m a 1,5 m de altura
+  let z = 24;
+  for (const gapLen of [0, 1, 2, 3, 4, 5]) {
+    z -= gapLen + 3;
+    g.box(24, 0.75, z + 1.5, 3, 1.5, 3, 0x5cc27a);
+    if (z < -16) break;
+  }
+  // Pasillo de 3 m entre dos paredes de 7 m (para saltar de pared a pared)
+  g.box(-22, 3.5, 2, 1, 7, 18, 0xb86bd9);
+  g.box(-17, 3.5, 2, 1, 7, 18, 0xb86bd9);
+  // Esferas de radio 0,5 a 2,5 m
+  let sx = 8, prevR = 0;
+  for (const r of [0.5, 1, 1.5, 2, 2.5]) {
+    sx += prevR + r + (prevR ? 0.5 : 0);
+    g.sphere(sx, r, -4, r, 0xe8625a);
+    prevR = r;
+  }
+  // Barra baja (cabeza): a 2 m de altura sobre dos postes
+  g.box(6, 1, -10, 0.3, 2, 0.3, 0x555b66);
+  g.box(12, 1, -10, 0.3, 2, 0.3, 0x555b66);
+  g.box(9, 2.1, -10, 6.6, 0.25, 0.5, 0xffd23d);
+  // Cubo y esfera clásicos, por si se quiere comparar con la Plaza
+  g.box(-8, 2, 10, 4, 4, 4, 0xe8803a);
+  g.sphere(-12, 2.5, -6, 2.5, 0x3a7be8);
+  return g.out({
+    id: 'test', name: 'MAPA DE PRUEBAS', sky: 0xd5deee, fog: { color: 0xd5deee, near: 40, far: 120 },
+    light: { hemi: 1.1, sun: 1.0 }, spawn: { x: 0, z: 24, jitter: 4 }, portals: [RETURN_PORTAL],
+  });
+}
+
+const BUILDERS = { lobby, forest, cave, canyon, city, test: testMap };
 
 /** Genera un mapa (siempre igual para el mismo id). */
 export function buildMap(id) {

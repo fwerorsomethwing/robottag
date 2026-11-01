@@ -3,7 +3,7 @@
 // Sin DOM, se prueba en Node (test/shop.test.mjs).
 import * as THREE from 'three';
 import { raySphere } from './locomotion.js';
-import { CATALOG } from './cosmetics.js';
+import { CATALOG, SHOP_CATALOG } from './cosmetics.js';
 
 const V3 = THREE.Vector3;
 
@@ -18,8 +18,8 @@ const ITEM_Z = SHOP.z - 1;
 
 /** Posición de cada cosmético del catálogo, repartidos por el local. */
 export function shopItems() {
-  const n = CATALOG.length, spacing = Math.min(3.2, 8 / n);
-  return CATALOG.map((it, i) => ({
+  const n = SHOP_CATALOG.length, spacing = Math.min(3.2, 8 / n);
+  return SHOP_CATALOG.map((it, i) => ({
     id: it.id, name: it.name, price: it.price, slot: it.slot,
     x: SHOP.x + (i - (n - 1) / 2) * spacing, y: ITEM_Y, z: ITEM_Z,
   }));

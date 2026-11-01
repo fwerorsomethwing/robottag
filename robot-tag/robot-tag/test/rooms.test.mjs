@@ -126,4 +126,15 @@ function setup(opts = {}) {
   ok('mapas del servidor = mapas del cliente');
 }
 
+// 9) Modelo del robot: solo valores conocidos; los demás se ignoran.
+{
+  const { rooms, sent } = setup();
+  const p = { id: 1, ws: {}, voice: false, cos: {}, model: 'sketch' };
+  const { applyProfile } = await import('../rooms.js').then((m) => m.default || m);
+  applyProfile(p, { model: 'kyle' }); assert.equal(p.model, 'kyle');
+  applyProfile(p, { model: 'hacker' }); assert.equal(p.model, 'kyle');
+  applyProfile(p, { model: 5 }); assert.equal(p.model, 'kyle');
+  ok('modelo kyle validado');
+}
+
 console.log('\nPruebas de salas: ' + n + ' correctas');

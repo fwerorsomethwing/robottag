@@ -198,6 +198,7 @@ export class Voice {
     this.muted = false;
     this.ctx = null;
     this.stream = null;
+    this.mix = null; // mezcla (micrófono + soundboard) que se manda a los demás
     this.remote = new Map(); // id -> { el, src, panner, an, buf, until }
     this.speaking = new Set();
     this.me = { an: null, buf: null, until: 0, speaking: false };
@@ -240,15 +241,23 @@ export class Voice {
     } else {
       this.error = 'NoMediaDevices'; // páginas sin HTTPS no tienen micrófono
     }
+    // Lo que oyen los demás sale de una mezcla: micrófono + sonidos del soundboard.
+    try {
+      if (this.ctx.createMediaStreamDestination) {
+        this.mix = this.ctx.createMediaStreamDestination();
+        this.mesh.setTrack(this.mix.stream.getAudioTracks()[0]);
+      }
+    } catch { this.mix = null; }
     if (stream) {
       this.stream = stream;
       const track = stream.getAudioTracks()[0];
       track.enabled = !this.muted;
-      this.mesh.setTrack(track);
+      if (!this.mix) this.mesh.setTrack(track);
       const src = this.ctx.createMediaStreamSource(stream);
       const an = this.ctx.createAnalyser();
       an.fftSize = 256;
-      src.connect(an); // solo para medir; no se conecta a los altavoces (eco)
+      if (this.mix) src.connect(this.mix);
+      src.connect(an); // para medir; el micrófono no se conecta a los altavoces (eco)
       this.me.an = an; this.me.buf = new Uint8Array(an.fftSize);
       this.state = 'on';
     } else {
@@ -261,12 +270,24 @@ export class Voice {
     this.mesh.closeAll();
     this.mesh.setTrack(null);
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
-    this.stream = null;
+    this.stream = null; this.mix = null;
     if (this.ctx) this.ctx.close().catch(() => {});
     this.ctx = null;
     this.remote.clear(); this.speaking.clear();
     this.me = { an: null, buf: null, until: 0, speaking: false };
     this.state = 'off';
+  }
+
+  /** Suena un AudioBuffer: lo oyes tú y, si hay mezcla de voz, también los demás. Devuelve la fuente (o null). */
+  playBuffer(buf) {
+    if (!this.ctx) return null;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    if (this.mix) src.connect(this.mix);
+    const g = this.ctx.createGain(); g.gain.value = 0.9;
+    src.connect(g); g.connect(this.ctx.destination);
+    src.start();
+    return src;
   }
 
   setIce(ice) { this.mesh.setIce(ice); }

@@ -7,3 +7,6 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: OWNER_KEY # tu clave de dueño (Owner Badge): Render te la pide al crear el Blueprint
+        sync: false
